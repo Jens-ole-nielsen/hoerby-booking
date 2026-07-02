@@ -21,7 +21,13 @@ class HKOF_Public {
                 <span><i class="hkof-dot hkof-pending"></i> Afventer</span>
                 <span><i class="hkof-dot hkof-booked"></i> Reserveret</span>
             </div>
-            <div id="hkof-calendar" class="hkof-calendar" data-days="<?php echo esc_attr($s['default_days']); ?>">
+            <div id="hkof-calendar" class="hkof-calendar"
+                 data-days-selskab="<?php echo esc_attr($s['default_days']); ?>"
+                 data-days-moede="<?php echo esc_attr($s['default_days_moede']); ?>"
+                 data-extra-price="<?php echo esc_attr($s['price_extra_day']); ?>"
+                 data-price-selskab="<?php echo esc_attr($s['price_selskab']); ?>"
+                 data-price-moede="<?php echo esc_attr($s['price_moede']); ?>"
+                 data-price-miljoe="<?php echo esc_attr($s['price_miljoeafgift']); ?>">
                 <div class="hkof-cal-nav">
                     <button type="button" id="hkof-prev-month">&larr;</button>
                     <span id="hkof-cal-title"></span>
@@ -51,11 +57,25 @@ class HKOF_Public {
                     <div class="hkof-field"><label>Formål *</label><input type="text" name="purpose" required placeholder="F.eks. konfirmation, fødselsdag, møde"></div>
                     <div class="hkof-field">
                         <label>Type *</label>
-                        <select name="price_type" required>
-                            <option value="selskab">Selskab</option>
-                            <option value="moede">Møde</option>
-                            <option value="begravelse">Begravelse</option>
+                        <select id="hkof-price-type" name="price_type" required>
+                            <option value="selskab">Selskab (standard <?php echo esc_html($s['default_days']); ?> dage)</option>
+                            <option value="moede">Møde (standard <?php echo esc_html($s['default_days_moede']); ?> dag)</option>
+                            <option value="begravelse">Begravelse (standard <?php echo esc_html($s['default_days_moede']); ?> dag)</option>
                         </select>
+                    </div>
+                </div>
+                <div class="hkof-row">
+                    <div class="hkof-field">
+                        <label>Ekstra dage (<?php echo esc_html(number_format((float) $s['price_extra_day'], 0, ',', '.')); ?> kr. pr. ekstra dag)</label>
+                        <select id="hkof-extra-days" name="extra_days">
+                            <?php for ($i = 0; $i <= 10; $i++): ?>
+                                <option value="<?php echo $i; ?>"><?php echo $i; ?></option>
+                            <?php endfor; ?>
+                        </select>
+                    </div>
+                    <div class="hkof-field">
+                        <label>Estimeret pris</label>
+                        <div id="hkof-price-estimate" class="hkof-price-estimate">Vælg venligst en periode</div>
                     </div>
                 </div>
 
@@ -104,6 +124,7 @@ class HKOF_Public {
         $phone      = sanitize_text_field($_POST['phone'] ?? '');
         $purpose    = sanitize_text_field($_POST['purpose'] ?? '');
         $price_type = in_array($_POST['price_type'] ?? '', ['selskab', 'moede', 'begravelse']) ? $_POST['price_type'] : 'selskab';
+        $extra_days = isset($_POST['extra_days']) ? max(0, min(30, (int) $_POST['extra_days'])) : 0;
 
         if (!$check_in || !$check_out || !$first_name || !$last_name || !$address || !$postal || !$email || !$phone || !$purpose) {
             wp_send_json_error(['message' => 'Udfyld venligst alle felter.']);
@@ -111,9 +132,18 @@ class HKOF_Public {
         if (!is_email($email)) {
             wp_send_json_error(['message' => 'Ugyldig email-adresse.']);
         }
-        if (strtotime($check_out) <= strtotime($check_in)) {
-            wp_send_json_error(['message' => 'Afgangsdato skal være efter ankomstdato.']);
+        if (strtotime($check_out) < strtotime($check_in)) {
+            wp_send_json_error(['message' => 'Afgangsdato kan ikke være før ankomstdato.']);
         }
+
+        // Sikrer at den valgte periode faktisk matcher standardperioden + ekstra dage for den valgte type
+        $base_days = HKOF_Settings::base_days_for_type($price_type);
+        $expected_days = $base_days + $extra_days;
+        $actual_days = (int) round((strtotime($check_out) - strtotime($check_in)) / DAY_IN_SECONDS) + 1;
+        if ($actual_days !== $expected_days) {
+            wp_send_json_error(['message' => 'Den valgte periode matcher ikke antal dage for den valgte type. Prøv venligst igen.']);
+        }
+
         if (HKOF_DB::has_overlap($check_in, $check_out)) {
             wp_send_json_error(['message' => 'Den valgte periode er desværre ikke længere ledig. Vælg venligst en anden dato.']);
         }
@@ -122,6 +152,7 @@ class HKOF_Public {
         $rental = HKOF_Settings::price_for_type($price_type);
         $environment_fee = (float) $s['price_miljoeafgift'];
         $deposit = (float) $s['price_depositum'];
+        $extra_days_fee = $extra_days * (float) $s['price_extra_day'];
 
         $id = HKOF_DB::insert([
             'first_name'      => $first_name,
@@ -137,6 +168,8 @@ class HKOF_Public {
             'rental_amount'   => $rental,
             'environment_fee' => $environment_fee,
             'deposit_amount'  => $deposit,
+            'extra_days'      => $extra_days,
+            'extra_days_fee'  => $extra_days_fee,
             'status'          => 'pending',
         ]);
 

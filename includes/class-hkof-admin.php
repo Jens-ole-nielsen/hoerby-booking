@@ -111,7 +111,11 @@ class HKOF_Admin {
                         <tr><th>Periode</th><td><?php echo esc_html(date_i18n('d.m.Y', strtotime($b->check_in_date)) . ' 12:00 - ' . date_i18n('d.m.Y', strtotime($b->check_out_date)) . ' 12:00'); ?></td></tr>
                         <tr><th>Type</th><td><?php echo esc_html($b->price_type); ?></td></tr>
                         <tr><th>Lejeafgift</th><td><?php echo number_format((float) $b->rental_amount, 2, ',', '.'); ?> kr.</td></tr>
+                        <?php if ((int) $b->extra_days > 0): ?>
+                        <tr><th>Ekstra dage</th><td><?php echo (int) $b->extra_days; ?> stk. &times; <?php echo number_format(((float) $b->extra_days_fee / max(1,(int) $b->extra_days)), 2, ',', '.'); ?> kr. = <?php echo number_format((float) $b->extra_days_fee, 2, ',', '.'); ?> kr.</td></tr>
+                        <?php endif; ?>
                         <tr><th>Miljøafgift</th><td><?php echo number_format((float) $b->environment_fee, 2, ',', '.'); ?> kr.</td></tr>
+                        <tr><th>Lejeafgift i alt</th><td><strong><?php echo number_format((float) $b->rental_amount + (float) $b->extra_days_fee + (float) $b->environment_fee, 2, ',', '.'); ?> kr.</strong></td></tr>
                         <tr><th>Depositum</th><td><?php echo number_format((float) $b->deposit_amount, 2, ',', '.'); ?> kr.</td></tr>
                     </table>
 

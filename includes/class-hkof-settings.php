@@ -25,6 +25,8 @@ class HKOF_Settings {
             'price_miljoeafgift'  => 450,
             'price_depositum'     => 2000,
             'default_days'        => 3,
+            'default_days_moede'  => 1,
+            'price_extra_day'     => 1000,
             'deposit_days_limit'  => 8,
             'invoice_days_before' => 14,
             'udlejning_navn'      => 'Inge Petersen',
@@ -68,6 +70,15 @@ class HKOF_Settings {
         return (float) $s['price_selskab'];
     }
 
+    /** Standard antal dage (uden ekstra dage) for en given periodetype */
+    public static function base_days_for_type($price_type) {
+        $s = self::all();
+        if ($price_type === 'moede' || $price_type === 'begravelse') {
+            return max(1, (int) $s['default_days_moede']);
+        }
+        return max(1, (int) $s['default_days']);
+    }
+
     public static function render_settings_page() {
         if (!current_user_can('manage_options')) return;
         $s = self::all();
@@ -89,6 +100,8 @@ class HKOF_Settings {
                 'price_miljoeafgift'  => (float) $_POST['price_miljoeafgift'],
                 'price_depositum'     => (float) $_POST['price_depositum'],
                 'default_days'        => absint($_POST['default_days']),
+                'default_days_moede'  => absint($_POST['default_days_moede']),
+                'price_extra_day'     => (float) $_POST['price_extra_day'],
                 'deposit_days_limit'  => absint($_POST['deposit_days_limit']),
                 'invoice_days_before' => absint($_POST['invoice_days_before']),
                 'udlejning_navn'      => sanitize_text_field($_POST['udlejning_navn']),
@@ -142,11 +155,13 @@ class HKOF_Settings {
                     <tr><th>Møder / begravelser</th><td><input type="number" step="0.01" name="price_moede" value="<?php echo esc_attr($s['price_moede']); ?>"></td></tr>
                     <tr><th>Miljøafgift (alle bookinger)</th><td><input type="number" step="0.01" name="price_miljoeafgift" value="<?php echo esc_attr($s['price_miljoeafgift']); ?>"></td></tr>
                     <tr><th>Depositum (alle bookinger)</th><td><input type="number" step="0.01" name="price_depositum" value="<?php echo esc_attr($s['price_depositum']); ?>"></td></tr>
+                    <tr><th>Ekstra dag (pr. dag udover standardperioden)</th><td><input type="number" step="0.01" name="price_extra_day" value="<?php echo esc_attr($s['price_extra_day']); ?>"></td></tr>
                 </table>
 
                 <h2>Frister og regler</h2>
                 <table class="form-table">
-                    <tr><th>Standard antal dage pr. booking</th><td><input type="number" name="default_days" value="<?php echo esc_attr($s['default_days']); ?>"> dage</td></tr>
+                    <tr><th>Standard antal dage – Selskaber</th><td><input type="number" name="default_days" value="<?php echo esc_attr($s['default_days']); ?>"> dage</td></tr>
+                    <tr><th>Standard antal dage – Møder/begravelser</th><td><input type="number" name="default_days_moede" value="<?php echo esc_attr($s['default_days_moede']); ?>"> dage</td></tr>
                     <tr><th>Depositum skal betales inden</th><td><input type="number" name="deposit_days_limit" value="<?php echo esc_attr($s['deposit_days_limit']); ?>"> dage efter godkendelse</td></tr>
                     <tr><th>Faktura sendes automatisk</th><td><input type="number" name="invoice_days_before" value="<?php echo esc_attr($s['invoice_days_before']); ?>"> dage før arrangementet</td></tr>
                 </table>

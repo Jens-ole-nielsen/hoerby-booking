@@ -35,6 +35,8 @@ class HKOF_DB {
             rental_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
             environment_fee DECIMAL(10,2) NOT NULL DEFAULT 0,
             deposit_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+            extra_days INT UNSIGNED NOT NULL DEFAULT 0,
+            extra_days_fee DECIMAL(10,2) NOT NULL DEFAULT 0,
             contract_sent_at DATETIME DEFAULT NULL,
             deposit_paid_at DATETIME DEFAULT NULL,
             invoice_sent_at DATETIME DEFAULT NULL,
@@ -127,9 +129,12 @@ class HKOF_DB {
     public static function has_overlap($check_in, $check_out, $exclude_id = null) {
         global $wpdb;
         $table = self::table();
+        // Inklusiv overlap-tjek (<=/>=) så udtjekningsdagen for en booking regnes som
+        // fuldt optaget (matcher kalenderens visning og understøtter korrekt
+        // enkelt-dags bookinger, hvor check_in og check_out er samme dato).
         $sql = "SELECT COUNT(*) FROM $table
                 WHERE status NOT IN ('rejected','cancelled')
-                AND check_in_date < %s AND check_out_date > %s";
+                AND check_in_date <= %s AND check_out_date >= %s";
         $params = [$check_out, $check_in];
         if ($exclude_id) {
             $sql .= " AND id != %d";

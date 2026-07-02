@@ -91,18 +91,33 @@ class HKOF_PDF extends FPDF {
         $pdf->Ln(4);
 
         $deposit_limit = date_i18n('d.m.Y', strtotime('+' . (int) $s['deposit_days_limit'] . ' days'));
-        $rental_total = (float) $booking->rental_amount + (float) $booking->environment_fee;
+        $extra_days = (int) $booking->extra_days;
+        $extra_fee = (float) $booking->extra_days_fee;
+        $rental_total = (float) $booking->rental_amount + $extra_fee + (float) $booking->environment_fee;
 
         $pdf->MultiCell(0, 6, self::enc(sprintf(
             'Depositum udgør kr. %s og bedes indbetalt indenfor %d dage.',
             number_format((float) $booking->deposit_amount, 2, ',', '.'), (int) $s['deposit_days_limit']
         )));
-        $pdf->MultiCell(0, 6, self::enc(sprintf(
-            'Lejeafgiften udgør kr. %s, + miljøafgift kr. %s (Incl. Moms). Indbetales senest %d dage før arrangementet afholdes.',
-            number_format((float) $booking->rental_amount, 2, ',', '.'),
-            number_format((float) $booking->environment_fee, 2, ',', '.'),
-            (int) $s['invoice_days_before']
-        )));
+        if ($extra_days > 0) {
+            $pdf->MultiCell(0, 6, self::enc(sprintf(
+                'Lejeafgiften udgør kr. %s, tillagt %d ekstra dag(e) á kr. %s = kr. %s, + miljøafgift kr. %s (Incl. Moms). I alt kr. %s. Indbetales senest %d dage før arrangementet afholdes.',
+                number_format((float) $booking->rental_amount, 2, ',', '.'),
+                $extra_days,
+                number_format((float) $s['price_extra_day'], 2, ',', '.'),
+                number_format($extra_fee, 2, ',', '.'),
+                number_format((float) $booking->environment_fee, 2, ',', '.'),
+                number_format($rental_total, 2, ',', '.'),
+                (int) $s['invoice_days_before']
+            )));
+        } else {
+            $pdf->MultiCell(0, 6, self::enc(sprintf(
+                'Lejeafgiften udgør kr. %s, + miljøafgift kr. %s (Incl. Moms). Indbetales senest %d dage før arrangementet afholdes.',
+                number_format((float) $booking->rental_amount, 2, ',', '.'),
+                number_format((float) $booking->environment_fee, 2, ',', '.'),
+                (int) $s['invoice_days_before']
+            )));
+        }
         $pdf->Ln(2);
 
         $pdf->MultiCell(0, 6, self::enc(sprintf(
@@ -246,10 +261,14 @@ class HKOF_PDF extends FPDF {
         $pdf->SetFont('Arial', '', 10);
         $pdf->Cell(120, 8, self::enc('Lejeafgift'), 1, 0, 'L');
         $pdf->Cell(60, 8, number_format((float) $booking->rental_amount, 2, ',', '.'), 1, 1, 'R');
+        if ((int) $booking->extra_days > 0) {
+            $pdf->Cell(120, 8, self::enc((int) $booking->extra_days . ' ekstra dag(e)'), 1, 0, 'L');
+            $pdf->Cell(60, 8, number_format((float) $booking->extra_days_fee, 2, ',', '.'), 1, 1, 'R');
+        }
         $pdf->Cell(120, 8, self::enc('Miljøafgift'), 1, 0, 'L');
         $pdf->Cell(60, 8, number_format((float) $booking->environment_fee, 2, ',', '.'), 1, 1, 'R');
 
-        $total = (float) $booking->rental_amount + (float) $booking->environment_fee;
+        $total = (float) $booking->rental_amount + (float) $booking->extra_days_fee + (float) $booking->environment_fee;
         $pdf->SetFont('Arial', 'B', 10);
         $pdf->Cell(120, 8, self::enc('I alt (inkl. moms)'), 1, 0, 'L');
         $pdf->Cell(60, 8, number_format($total, 2, ',', '.'), 1, 1, 'R');

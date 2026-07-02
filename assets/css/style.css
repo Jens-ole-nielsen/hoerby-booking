@@ -30,3 +30,4 @@
 #hkof-form-message{margin-top:12px;font-size:14px}
 #hkof-form-message.success{color:#15803d}
 #hkof-form-message.error{color:#b91c1c}
+.hkof-price-estimate{font-size:13px;background:#f8fafc;border:1px solid #e2e2e2;border-radius:6px;padding:8px 10px;line-height:1.5}

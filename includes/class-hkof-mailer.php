@@ -60,7 +60,7 @@ class HKOF_Mailer {
         $label = $type === 'depositum' ? 'depositum' : 'leje';
         $amount = $type === 'depositum'
             ? number_format((float) $booking->deposit_amount, 2, ',', '.')
-            : number_format((float) $booking->rental_amount + (float) $booking->environment_fee, 2, ',', '.');
+            : number_format((float) $booking->rental_amount + (float) $booking->extra_days_fee + (float) $booking->environment_fee, 2, ',', '.');
         $admin_url = admin_url('admin.php?page=hkof-bookings&action=view&id=' . $booking->id);
         $subject = 'Opkrævning af ' . $label . ' sendt – lejeaftale nr. ' . $booking->booking_ref;
         $body = "Der er netop sendt en opkrævning af {$label} til {$booking->first_name} {$booking->last_name} (lejeaftale nr. {$booking->booking_ref}).\n\n"
@@ -88,7 +88,7 @@ class HKOF_Mailer {
     public static function send_invoice($booking, $pdf_path) {
         $s = HKOF_Settings::all();
         $subject = 'Faktura for leje af huset – ' . $booking->booking_ref;
-        $total = number_format((float) $booking->rental_amount + (float) $booking->environment_fee, 2, ',', '.');
+        $total = number_format((float) $booking->rental_amount + (float) $booking->extra_days_fee + (float) $booking->environment_fee, 2, ',', '.');
         $body = "Hej {$booking->first_name},\n\n"
             . "Vedhæftet finder du fakturaen for jeres leje af huset d. " . date_i18n('d.m.Y', strtotime($booking->check_in_date)) . ".\n"
             . "Beløbet på kr. {$total} bedes indbetalt senest {$s['invoice_days_before']} dage før arrangementet – husk lejeaftale nr. {$booking->booking_ref} på indbetalingen.\n\n"
