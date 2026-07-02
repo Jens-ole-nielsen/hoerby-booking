@@ -142,7 +142,8 @@ class HKOF_Public {
 
         $booking = HKOF_DB::get($id);
         HKOF_Mailer::send_new_booking_notification($booking);
+        HKOF_Mailer::send_booking_received($booking);
 
-        wp_send_json_success(['message' => 'Tak for din forespørgsel! Vi vender tilbage hurtigst muligt med en lejeaftale på mail.']);
+        wp_send_json_success(['message' => 'Tak for din forespørgsel! Den afventer nu godkendelse, og du modtager en bekræftelse på mail.']);
     }
 }

@@ -115,6 +115,7 @@ class HKOF_Admin {
                         <tr><th>Depositum</th><td><?php echo number_format((float) $b->deposit_amount, 2, ',', '.'); ?> kr.</td></tr>
                     </table>
 
+                    <?php if ($b->deposit_invoice_sent_at): ?><p>📨 Opkrævning af depositum sendt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->deposit_invoice_sent_at))); ?></p><?php endif; ?>
                     <?php if ($b->contract_sent_at): ?><p>📄 Kontrakt sendt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->contract_sent_at))); ?></p><?php endif; ?>
                     <?php if ($b->deposit_paid_at): ?><p>💰 Depositum modtaget: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->deposit_paid_at))); ?></p><?php endif; ?>
                     <?php if ($b->invoice_sent_at): ?><p>🧾 Faktura sendt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->invoice_sent_at))); ?></p><?php endif; ?>
@@ -125,15 +126,16 @@ class HKOF_Admin {
                     <h2>Handlinger</h2>
                     <div style="display:flex;flex-direction:column;gap:8px">
                     <?php if ($b->status === 'pending'): ?>
-                        <a href="<?php echo self::action_url($id, 'approve'); ?>" class="button button-primary" onclick="return confirm('Godkend booking og send kontrakt til lejer?')">✅ Godkend & send kontrakt</a>
+                        <a href="<?php echo self::action_url($id, 'approve'); ?>" class="button button-primary" onclick="return confirm('Godkend booking og send opkrævning af depositum til lejer?')">✅ Godkend & send opkrævning</a>
                         <a href="<?php echo self::action_url($id, 'reject'); ?>" class="button" onclick="return confirm('Afvis denne booking?')">❌ Afvis</a>
                     <?php elseif ($b->status === 'approved'): ?>
-                        <a href="<?php echo self::action_url($id, 'mark_deposit_paid'); ?>" class="button button-primary" onclick="return confirm('Bekræft at depositum er modtaget på bankkontoen?')">💰 Registrér depositum modtaget</a>
-                        <a href="<?php echo self::action_url($id, 'resend_contract'); ?>" class="button">📧 Gensend kontrakt</a>
+                        <a href="<?php echo self::action_url($id, 'mark_deposit_paid'); ?>" class="button button-primary" onclick="return confirm('Bekræft at depositum er modtaget – dette sender kontrakten til lejer.')">💰 Registrér depositum modtaget & send kontrakt</a>
+                        <a href="<?php echo self::action_url($id, 'resend_deposit_invoice'); ?>" class="button">📧 Gensend opkrævning af depositum</a>
                     <?php elseif ($b->status === 'deposit_paid'): ?>
                         <a href="<?php echo self::action_url($id, 'send_invoice_now'); ?>" class="button button-primary" onclick="return confirm('Send faktura nu (før den automatiske dato)?')">🧾 Send faktura nu</a>
+                        <a href="<?php echo self::action_url($id, 'resend_contract'); ?>" class="button">📧 Gensend kontrakt</a>
                     <?php elseif ($b->status === 'invoice_sent'): ?>
-                        <a href="<?php echo self::action_url($id, 'mark_invoice_paid'); ?>" class="button button-primary" onclick="return confirm('Bekræft at fakturaen er betalt?')">✅ Registrér faktura betalt</a>
+                        <a href="<?php echo self::action_url($id, 'mark_invoice_paid'); ?>" class="button button-primary" onclick="return confirm('Bekræft at fakturaen er betalt? Lejeren får en bekræftelsesmail.')">✅ Registrér faktura betalt</a>
                     <?php elseif ($b->status === 'paid'): ?>
                         <a href="<?php echo self::action_url($id, 'mark_completed'); ?>" class="button">🏁 Markér som afsluttet</a>
                     <?php endif; ?>
@@ -175,9 +177,15 @@ class HKOF_Admin {
                 $ref = HKOF_DB::next_booking_ref();
                 HKOF_DB::update($id, ['status' => 'approved', 'booking_ref' => $ref]);
                 $booking = HKOF_DB::get($id);
-                $pdf_path = HKOF_PDF::generate_contract($booking);
-                HKOF_Mailer::send_contract($booking, $pdf_path);
-                HKOF_DB::update($id, ['contract_sent_at' => current_time('mysql')]);
+                HKOF_Mailer::send_deposit_invoice($booking);
+                HKOF_Mailer::notify_association_invoice_sent($booking, 'depositum');
+                HKOF_DB::update($id, ['deposit_invoice_sent_at' => current_time('mysql')]);
+                break;
+
+            case 'resend_deposit_invoice':
+                if ($booking->booking_ref) {
+                    HKOF_Mailer::send_deposit_invoice($booking);
+                }
                 break;
 
             case 'resend_contract':
@@ -195,17 +203,23 @@ class HKOF_Admin {
 
             case 'mark_deposit_paid':
                 HKOF_DB::update($id, ['status' => 'deposit_paid', 'deposit_paid_at' => current_time('mysql')]);
-                HKOF_Mailer::send_deposit_confirmation($booking);
+                $booking = HKOF_DB::get($id);
+                $pdf_path = HKOF_PDF::generate_contract($booking);
+                HKOF_Mailer::send_contract($booking, $pdf_path);
+                HKOF_DB::update($id, ['contract_sent_at' => current_time('mysql')]);
                 break;
 
             case 'send_invoice_now':
                 $pdf_path = HKOF_PDF::generate_invoice($booking);
                 HKOF_Mailer::send_invoice($booking, $pdf_path);
+                HKOF_Mailer::notify_association_invoice_sent($booking, 'leje');
                 HKOF_DB::update($id, ['status' => 'invoice_sent', 'invoice_sent_at' => current_time('mysql')]);
                 break;
 
             case 'mark_invoice_paid':
                 HKOF_DB::update($id, ['status' => 'paid', 'invoice_paid_at' => current_time('mysql')]);
+                $booking = HKOF_DB::get($id);
+                HKOF_Mailer::send_final_payment_confirmation($booking);
                 break;
 
             case 'mark_completed':

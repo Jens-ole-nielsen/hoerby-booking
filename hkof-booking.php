@@ -3,7 +3,7 @@
  * Plugin Name: Hørby Booking System
  * Plugin URI: https://github.com/Jens-ole-nielsen/hoerby-booking
  * Description: Booking-system til udlejning af hele huset. Godkendelsesflow, automatisk kontrakt-PDF, manuel depositum-registrering og automatisk faktura 14 dage før arrangementet.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Fair IT
  * Author URI: https://fair-it.dk
  * Text Domain: hkof-booking
@@ -12,7 +12,7 @@
 
 if (!defined('ABSPATH')) exit; // Ingen direkte adgang
 
-define('HKOF_BOOKING_VERSION', '1.0.0');
+define('HKOF_BOOKING_VERSION', '1.1.0');
 define('HKOF_BOOKING_FILE', __FILE__);
 define('HKOF_BOOKING_DIR', plugin_dir_path(__FILE__));
 define('HKOF_BOOKING_URL', plugin_dir_url(__FILE__));
@@ -44,11 +44,25 @@ register_activation_hook(__FILE__, function () {
     HKOF_DB::create_table();
     HKOF_Settings::set_defaults();
     HKOF_Cron::schedule();
+    update_option('hkof_booking_db_version', HKOF_BOOKING_VERSION);
 });
 
 register_deactivation_hook(__FILE__, function () {
     HKOF_Cron::unschedule();
 });
+
+// ─── AUTOMATISK DATABASE-OPGRADERING ────────────────────────
+// Køres ved hver sideindlæsning og opdaterer databasetabellen (tilføjer
+// evt. nye kolonner) hvis pluginnet er blevet opdateret via GitHub uden
+// at der er sket en deaktiver/aktiver. dbDelta er sikker at køre igen
+// og igen — den sletter aldrig data, kun tilføjer/retter struktur.
+add_action('plugins_loaded', function () {
+    $installed = get_option('hkof_booking_db_version');
+    if ($installed !== HKOF_BOOKING_VERSION) {
+        HKOF_DB::create_table();
+        update_option('hkof_booking_db_version', HKOF_BOOKING_VERSION);
+    }
+}, 5);
 
 // ─── OPSTART ────────────────────────────────────────────────
 add_action('plugins_loaded', function () {

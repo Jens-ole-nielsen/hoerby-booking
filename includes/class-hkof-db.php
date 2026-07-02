@@ -40,6 +40,7 @@ class HKOF_DB {
             invoice_sent_at DATETIME DEFAULT NULL,
             invoice_paid_at DATETIME DEFAULT NULL,
             completed_at DATETIME DEFAULT NULL,
+            deposit_invoice_sent_at DATETIME DEFAULT NULL,
             rejected_reason TEXT DEFAULT NULL,
             admin_notes TEXT DEFAULT NULL,
             created_at DATETIME NOT NULL,
