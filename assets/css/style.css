@@ -17,6 +17,18 @@
 .hkof-cal-day.past{color:#ccc;cursor:not-allowed}
 .hkof-cal-day.selected{background:#2563eb !important;color:#fff;font-weight:700}
 .hkof-cal-day.in-range{background:#bfdbfe !important}
+
+/* Halve dage for EKSISTERENDE bookinger (ankomst-/afgangsdag, kl. 12.00-skift) */
+.hkof-cal-day.booked.half-start{background:linear-gradient(to right, #f0fdf4 50%, #fee2e2 50%) !important}
+.hkof-cal-day.booked.half-end{background:linear-gradient(to right, #fee2e2 50%, #f0fdf4 50%) !important}
+.hkof-cal-day.pending.half-start{background:linear-gradient(to right, #f0fdf4 50%, #fef3c7 50%) !important}
+.hkof-cal-day.pending.half-end{background:linear-gradient(to right, #fef3c7 50%, #f0fdf4 50%) !important}
+
+/* Halve dage for den periode man er ved at VÆLGE i kalenderen */
+.hkof-cal-day.hkof-range-start{background:linear-gradient(to right, #f0fdf4 50%, #2563eb 50%) !important;color:#1e3a8a;font-weight:700}
+.hkof-cal-day.hkof-range-end{background:linear-gradient(to right, #2563eb 50%, #f0fdf4 50%) !important;color:#1e3a8a;font-weight:700}
+.hkof-cal-day.hkof-range-middle{background:#bfdbfe !important}
+.hkof-cal-day.hkof-range-single{background:#2563eb !important;color:#fff;font-weight:700}
 .hkof-form{border:1px solid #e2e2e2;border-radius:8px;padding:18px}
 .hkof-selected-range{margin-top:0;font-size:14px}
 .hkof-row{display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap}

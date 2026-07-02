@@ -3,7 +3,7 @@
  * Plugin Name: Hørby Booking System
  * Plugin URI: https://github.com/Jens-ole-nielsen/hoerby-booking
  * Description: Booking-system til udlejning af hele huset. Godkendelsesflow, automatisk kontrakt-PDF, manuel depositum-registrering og automatisk faktura 14 dage før arrangementet.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: Fair IT
  * Author URI: https://fair-it.dk
  * Text Domain: hkof-booking
@@ -12,7 +12,7 @@
 
 if (!defined('ABSPATH')) exit; // Ingen direkte adgang
 
-define('HKOF_BOOKING_VERSION', '1.2.0');
+define('HKOF_BOOKING_VERSION', '1.3.0');
 define('HKOF_BOOKING_FILE', __FILE__);
 define('HKOF_BOOKING_DIR', plugin_dir_path(__FILE__));
 define('HKOF_BOOKING_URL', plugin_dir_url(__FILE__));
@@ -38,6 +38,16 @@ $hkofUpdateChecker = PucFactory::buildUpdateChecker(
     'hkof-booking'
 );
 $hkofUpdateChecker->setBranch('main');
+
+// GitHub rate-limiter uautentificerede API-kald til 60/time PR. IP – på delt
+// hosting kan denne kvote let være brugt op af andre sites på samme IP, hvilket
+// giver "HTTP status code: 403" når WP tjekker for opdateringer. Sættes derfor
+// et Personal Access Token (under Indstillinger i pluginnet) op, hæves kvoten
+// til 5000/time og fejlen forsvinder.
+$hkofGithubToken = HKOF_Settings::get('github_update_token');
+if (!empty($hkofGithubToken)) {
+    $hkofUpdateChecker->setAuthentication($hkofGithubToken);
+}
 
 // ─── AKTIVERING / DEAKTIVERING ─────────────────────────────
 register_activation_hook(__FILE__, function () {

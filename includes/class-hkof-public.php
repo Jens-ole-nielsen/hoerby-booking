@@ -20,6 +20,7 @@ class HKOF_Public {
                 <span><i class="hkof-dot hkof-free"></i> Ledig</span>
                 <span><i class="hkof-dot hkof-pending"></i> Afventer</span>
                 <span><i class="hkof-dot hkof-booked"></i> Reserveret</span>
+                <span>◐ Ankomst-/afgangsdag (halv dag, kl. 12.00)</span>
             </div>
             <div id="hkof-calendar" class="hkof-calendar"
                  data-days-selskab="<?php echo esc_attr($s['default_days']); ?>"
@@ -88,7 +89,13 @@ class HKOF_Public {
         return ob_get_clean();
     }
 
-    /** Returnerer optagelsesstatus for en given måned til kalenderen */
+    /**
+     * Returnerer optagelsesstatus for en given måned til kalenderen.
+     * Hver dag får en status (booked/pending) samt evt. et 'half'-flag
+     * ('start' = ankomstdag, kun optaget fra kl. 12, 'end' = afgangsdag,
+     * kun optaget til kl. 12) så kalenderen kan vise ankomst-/afgangsdage
+     * som halve dage. Enkelt-dags bookinger får intet half-flag (hel dag).
+     */
     public static function ajax_calendar() {
         check_ajax_referer('hkof_booking_nonce', 'nonce');
         $month = isset($_GET['month']) ? sanitize_text_field($_GET['month']) : date('Y-m');
@@ -99,12 +106,24 @@ class HKOF_Public {
         $days = [];
         foreach ($bookings as $b) {
             $status = ($b->status === 'pending') ? 'pending' : 'booked';
+            $single_day = ($b->check_in_date === $b->check_out_date);
             $cursor = strtotime($b->check_in_date);
             $stop = strtotime($b->check_out_date);
             while ($cursor <= $stop) {
                 $d = date('Y-m-d', $cursor);
-                // Behold "booked" over "pending" hvis begge findes samme dag
-                if (!isset($days[$d]) || $days[$d] !== 'booked') $days[$d] = $status;
+                $half = null;
+                if (!$single_day) {
+                    if ($d === $b->check_in_date) $half = 'start';
+                    elseif ($d === $b->check_out_date) $half = 'end';
+                }
+                if (!isset($days[$d])) {
+                    $days[$d] = ['status' => $status, 'half' => $half];
+                } else {
+                    // Behold "booked" over "pending" hvis begge findes samme dag
+                    if ($status === 'booked') $days[$d]['status'] = 'booked';
+                    // Rammer to bookinger samme dag med forskellige halv-typer, vis hele dagen som optaget (sikrest)
+                    if ($days[$d]['half'] !== $half) $days[$d]['half'] = null;
+                }
                 $cursor = strtotime('+1 day', $cursor);
             }
         }

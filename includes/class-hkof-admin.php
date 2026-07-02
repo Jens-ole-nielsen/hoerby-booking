@@ -17,6 +17,7 @@ class HKOF_Admin {
     public static function init() {
         add_action('admin_menu', [__CLASS__, 'menu']);
         add_action('admin_post_hkof_booking_action', [__CLASS__, 'handle_action']);
+        add_action('admin_post_hkof_booking_save', [__CLASS__, 'handle_save']);
         add_action('admin_enqueue_scripts', function ($hook) {
             if (strpos($hook, 'hkof-') !== false) wp_enqueue_media();
         });
@@ -38,6 +39,10 @@ class HKOF_Admin {
 
         if (isset($_GET['action']) && $_GET['action'] === 'view' && isset($_GET['id'])) {
             self::render_detail((int) $_GET['id']);
+            return;
+        }
+        if (isset($_GET['action']) && $_GET['action'] === 'edit' && isset($_GET['id'])) {
+            self::render_edit((int) $_GET['id']);
             return;
         }
 
@@ -71,7 +76,10 @@ class HKOF_Admin {
                         <td><?php echo esc_html($b->purpose); ?></td>
                         <td><?php echo self::label($b->status); ?></td>
                         <td><?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->created_at))); ?></td>
-                        <td><a class="button button-small" href="?page=hkof-bookings&action=view&id=<?php echo $b->id; ?>">Åbn</a></td>
+                        <td>
+                            <a class="button button-small" href="?page=hkof-bookings&action=view&id=<?php echo $b->id; ?>">Åbn</a>
+                            <a class="button button-small" href="?page=hkof-bookings&action=edit&id=<?php echo $b->id; ?>">✏️ Rediger</a>
+                        </td>
                     </tr>
                 <?php endforeach; endif; ?>
                 </tbody>
@@ -124,11 +132,16 @@ class HKOF_Admin {
                     <?php if ($b->deposit_paid_at): ?><p>💰 Depositum modtaget: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->deposit_paid_at))); ?></p><?php endif; ?>
                     <?php if ($b->invoice_sent_at): ?><p>🧾 Faktura sendt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->invoice_sent_at))); ?></p><?php endif; ?>
                     <?php if ($b->invoice_paid_at): ?><p>✅ Faktura betalt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->invoice_paid_at))); ?></p><?php endif; ?>
+                    <?php if (!empty($b->admin_notes)): ?>
+                        <h3>Interne noter</h3>
+                        <p style="white-space:pre-wrap;background:#f6f7f7;border:1px solid #dcdcde;padding:8px 10px;border-radius:4px"><?php echo esc_html($b->admin_notes); ?></p>
+                    <?php endif; ?>
                 </div>
 
                 <div style="flex:0 0 260px">
                     <h2>Handlinger</h2>
                     <div style="display:flex;flex-direction:column;gap:8px">
+                    <a href="?page=hkof-bookings&action=edit&id=<?php echo $id; ?>" class="button">✏️ Rediger booking</a>
                     <?php if ($b->status === 'pending'): ?>
                         <a href="<?php echo self::action_url($id, 'approve'); ?>" class="button button-primary" onclick="return confirm('Godkend booking og send opkrævning af depositum til lejer?')">✅ Godkend & send opkrævning</a>
                         <a href="<?php echo self::action_url($id, 'reject'); ?>" class="button" onclick="return confirm('Afvis denne booking?')">❌ Afvis</a>
@@ -165,6 +178,192 @@ class HKOF_Admin {
             </div>
         </div>
         <?php
+    }
+
+    private static function render_edit($id) {
+        if (!current_user_can('edit_posts')) return;
+        $b = HKOF_DB::get($id);
+        if (!$b) { echo '<div class="wrap"><p>Booking ikke fundet.</p></div>'; return; }
+        $s = HKOF_Settings::all();
+        $error = isset($_GET['error']) ? sanitize_text_field(wp_unslash($_GET['error'])) : '';
+        ?>
+        <div class="wrap hkof-wrap">
+            <h1>Rediger booking – <?php echo esc_html($b->first_name . ' ' . $b->last_name); ?></h1>
+            <p><a href="?page=hkof-bookings&action=view&id=<?php echo $id; ?>">&larr; Tilbage til booking</a></p>
+
+            <?php if ($error): ?>
+                <div class="notice notice-error"><p><?php echo esc_html($error); ?></p></div>
+            <?php endif; ?>
+
+            <p class="description">Bemærk: at redigere en booking sender ikke automatisk besked til lejer. Brug knapperne "Gensend kontrakt" / "Send faktura nu" på booking-siden bagefter, hvis lejer skal have besked om ændringen.</p>
+
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                <input type="hidden" name="action" value="hkof_booking_save">
+                <input type="hidden" name="booking_id" value="<?php echo (int) $id; ?>">
+                <?php wp_nonce_field('hkof_booking_save_' . $id); ?>
+
+                <h2>Kontaktoplysninger</h2>
+                <table class="form-table">
+                    <tr><th>Fornavn</th><td><input type="text" name="first_name" value="<?php echo esc_attr($b->first_name); ?>" class="regular-text" required></td></tr>
+                    <tr><th>Efternavn</th><td><input type="text" name="last_name" value="<?php echo esc_attr($b->last_name); ?>" class="regular-text" required></td></tr>
+                    <tr><th>Adresse</th><td><input type="text" name="address" value="<?php echo esc_attr($b->address); ?>" class="regular-text" required></td></tr>
+                    <tr><th>Postnr / By</th><td><input type="text" name="postal_city" value="<?php echo esc_attr($b->postal_city); ?>" class="regular-text" required></td></tr>
+                    <tr><th>Email</th><td><input type="email" name="email" value="<?php echo esc_attr($b->email); ?>" class="regular-text" required></td></tr>
+                    <tr><th>Telefon</th><td><input type="text" name="phone" value="<?php echo esc_attr($b->phone); ?>" class="regular-text" required></td></tr>
+                    <tr><th>Formål</th><td><input type="text" name="purpose" value="<?php echo esc_attr($b->purpose); ?>" class="regular-text" required></td></tr>
+                </table>
+
+                <h2>Periode &amp; pris</h2>
+                <table class="form-table">
+                    <tr>
+                        <th>Type</th>
+                        <td>
+                            <select name="price_type" id="hkof-edit-type">
+                                <option value="selskab" <?php selected($b->price_type, 'selskab'); ?>>Selskab (standard <?php echo esc_html($s['default_days']); ?> dage)</option>
+                                <option value="moede" <?php selected($b->price_type, 'moede'); ?>>Møde (standard <?php echo esc_html($s['default_days_moede']); ?> dag)</option>
+                                <option value="begravelse" <?php selected($b->price_type, 'begravelse'); ?>>Begravelse (standard <?php echo esc_html($s['default_days_moede']); ?> dag)</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr><th>Ankomstdato</th><td><input type="date" name="check_in_date" id="hkof-edit-checkin" value="<?php echo esc_attr($b->check_in_date); ?>" required></td></tr>
+                    <tr>
+                        <th>Ekstra dage</th>
+                        <td>
+                            <select name="extra_days" id="hkof-edit-extra">
+                                <?php for ($i = 0; $i <= 30; $i++): ?>
+                                    <option value="<?php echo $i; ?>" <?php selected((int) $b->extra_days, $i); ?>><?php echo $i; ?></option>
+                                <?php endfor; ?>
+                            </select>
+                            (<?php echo esc_html(number_format((float) $s['price_extra_day'], 0, ',', '.')); ?> kr. pr. ekstra dag)
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Afgangsdato</th>
+                        <td>
+                            <input type="date" name="check_out_date" id="hkof-edit-checkout" value="<?php echo esc_attr($b->check_out_date); ?>" required>
+                            <button type="button" class="button" id="hkof-edit-recalc-dates">↻ Beregn ud fra type + ekstra dage</button>
+                            <p class="description">Beregnes automatisk ud fra type og ekstra dage, men kan tilpasses manuelt her ved behov.</p>
+                        </td>
+                    </tr>
+                    <tr><th>Lejeafgift (kr.)</th><td><input type="number" step="0.01" name="rental_amount" id="hkof-edit-rental" value="<?php echo esc_attr($b->rental_amount); ?>"></td></tr>
+                    <tr><th>Ekstra dage – beløb (kr.)</th><td><input type="number" step="0.01" name="extra_days_fee" id="hkof-edit-extrafee" value="<?php echo esc_attr($b->extra_days_fee); ?>"></td></tr>
+                    <tr><th>Miljøafgift (kr.)</th><td><input type="number" step="0.01" name="environment_fee" value="<?php echo esc_attr($b->environment_fee); ?>"></td></tr>
+                    <tr><th>Depositum (kr.)</th><td><input type="number" step="0.01" name="deposit_amount" value="<?php echo esc_attr($b->deposit_amount); ?>"></td></tr>
+                </table>
+                <p><button type="button" class="button" id="hkof-edit-recalc-price">↻ Genberegn priser til standardpriser for type + ekstra dage</button></p>
+
+                <h2>Interne noter</h2>
+                <textarea name="admin_notes" rows="4" class="large-text" placeholder="Kun synligt for jer internt – vises ikke for lejer"><?php echo esc_textarea($b->admin_notes); ?></textarea>
+
+                <p style="margin-top:18px">
+                    <button type="submit" class="button button-primary">💾 Gem ændringer</button>
+                    <a href="?page=hkof-bookings&action=view&id=<?php echo $id; ?>" class="button">Annullér</a>
+                </p>
+            </form>
+        </div>
+        <script>
+        (function(){
+            var baseDaysSelskab = <?php echo (int) $s['default_days']; ?>;
+            var baseDaysMoede = <?php echo (int) $s['default_days_moede']; ?>;
+            var priceSelskab = <?php echo (float) $s['price_selskab']; ?>;
+            var priceMoede = <?php echo (float) $s['price_moede']; ?>;
+            var extraPrice = <?php echo (float) $s['price_extra_day']; ?>;
+
+            function currentBaseDays() {
+                var t = document.getElementById('hkof-edit-type').value;
+                return (t === 'moede' || t === 'begravelse') ? baseDaysMoede : baseDaysSelskab;
+            }
+            function currentBasePrice() {
+                var t = document.getElementById('hkof-edit-type').value;
+                return (t === 'moede' || t === 'begravelse') ? priceMoede : priceSelskab;
+            }
+            function addDaysISO(iso, n) {
+                var d = new Date(iso + 'T12:00:00');
+                d.setDate(d.getDate() + n);
+                var pad = function(x){ return x < 10 ? '0'+x : ''+x; };
+                return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+            }
+            document.getElementById('hkof-edit-recalc-dates').addEventListener('click', function () {
+                var checkin = document.getElementById('hkof-edit-checkin').value;
+                if (!checkin) { alert('Vælg først en ankomstdato.'); return; }
+                var extra = parseInt(document.getElementById('hkof-edit-extra').value, 10) || 0;
+                var days = currentBaseDays() + extra;
+                document.getElementById('hkof-edit-checkout').value = addDaysISO(checkin, days - 1);
+            });
+            document.getElementById('hkof-edit-recalc-price').addEventListener('click', function () {
+                var extra = parseInt(document.getElementById('hkof-edit-extra').value, 10) || 0;
+                document.getElementById('hkof-edit-rental').value = currentBasePrice();
+                document.getElementById('hkof-edit-extrafee').value = extra * extraPrice;
+            });
+        })();
+        </script>
+        <?php
+    }
+
+    public static function handle_save() {
+        $id = isset($_POST['booking_id']) ? (int) $_POST['booking_id'] : 0;
+        check_admin_referer('hkof_booking_save_' . $id);
+        if (!current_user_can('edit_posts') || !$id) wp_die('Ingen adgang');
+        $booking = HKOF_DB::get($id);
+        if (!$booking) wp_die('Booking ikke fundet');
+
+        $first_name = sanitize_text_field($_POST['first_name'] ?? '');
+        $last_name  = sanitize_text_field($_POST['last_name'] ?? '');
+        $address    = sanitize_text_field($_POST['address'] ?? '');
+        $postal     = sanitize_text_field($_POST['postal_city'] ?? '');
+        $email      = sanitize_email($_POST['email'] ?? '');
+        $phone      = sanitize_text_field($_POST['phone'] ?? '');
+        $purpose    = sanitize_text_field($_POST['purpose'] ?? '');
+        $price_type = in_array($_POST['price_type'] ?? '', ['selskab', 'moede', 'begravelse']) ? $_POST['price_type'] : 'selskab';
+        $check_in   = sanitize_text_field($_POST['check_in_date'] ?? '');
+        $check_out  = sanitize_text_field($_POST['check_out_date'] ?? '');
+        $extra_days = max(0, min(30, (int) ($_POST['extra_days'] ?? 0)));
+        $rental_amount   = (float) ($_POST['rental_amount'] ?? 0);
+        $extra_days_fee  = (float) ($_POST['extra_days_fee'] ?? 0);
+        $environment_fee = (float) ($_POST['environment_fee'] ?? 0);
+        $deposit_amount  = (float) ($_POST['deposit_amount'] ?? 0);
+        $admin_notes     = sanitize_textarea_field($_POST['admin_notes'] ?? '');
+
+        $redirect_edit = admin_url('admin.php?page=hkof-bookings&action=edit&id=' . $id);
+
+        if (!$first_name || !$last_name || !$address || !$postal || !$email || !$phone || !$purpose || !$check_in || !$check_out) {
+            wp_safe_redirect($redirect_edit . '&error=' . rawurlencode('Udfyld venligst alle felter.'));
+            exit;
+        }
+        if (!is_email($email)) {
+            wp_safe_redirect($redirect_edit . '&error=' . rawurlencode('Ugyldig email-adresse.'));
+            exit;
+        }
+        if (strtotime($check_out) < strtotime($check_in)) {
+            wp_safe_redirect($redirect_edit . '&error=' . rawurlencode('Afgangsdato kan ikke være før ankomstdato.'));
+            exit;
+        }
+        if (HKOF_DB::has_overlap($check_in, $check_out, $id)) {
+            wp_safe_redirect($redirect_edit . '&error=' . rawurlencode('Den valgte periode overlapper med en anden booking. Vælg venligst andre datoer.'));
+            exit;
+        }
+
+        HKOF_DB::update($id, [
+            'first_name'      => $first_name,
+            'last_name'       => $last_name,
+            'address'         => $address,
+            'postal_city'     => $postal,
+            'email'           => $email,
+            'phone'           => $phone,
+            'purpose'         => $purpose,
+            'price_type'      => $price_type,
+            'check_in_date'   => $check_in,
+            'check_out_date'  => $check_out,
+            'extra_days'      => $extra_days,
+            'rental_amount'   => $rental_amount,
+            'extra_days_fee'  => $extra_days_fee,
+            'environment_fee' => $environment_fee,
+            'deposit_amount'  => $deposit_amount,
+            'admin_notes'     => $admin_notes,
+        ]);
+
+        wp_safe_redirect(admin_url('admin.php?page=hkof-bookings&action=view&id=' . $id . '&done=1'));
+        exit;
     }
 
     public static function handle_action() {

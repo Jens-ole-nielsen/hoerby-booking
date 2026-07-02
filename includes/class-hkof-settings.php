@@ -36,6 +36,7 @@ class HKOF_Settings {
             'tilsyn_tlf'          => '20 77 81 07',
             'sender_name'         => 'Hørby Kultur & Forsamlingshus',
             'notify_email'        => get_option('admin_email'),
+            'github_update_token' => '',
         ];
     }
 
@@ -112,6 +113,12 @@ class HKOF_Settings {
                 'sender_name'         => sanitize_text_field($_POST['sender_name']),
                 'notify_email'        => sanitize_email($_POST['notify_email']),
             ]);
+            if (!empty($_POST['github_update_token'])) {
+                self::update(['github_update_token' => sanitize_text_field($_POST['github_update_token'])]);
+            }
+            if (!empty($_POST['github_update_token_clear'])) {
+                self::update(['github_update_token' => '']);
+            }
             echo '<div class="notice notice-success"><p>Indstillinger gemt.</p></div>';
             $s = self::all();
         }
@@ -147,6 +154,20 @@ class HKOF_Settings {
                     <tr><th>Bank</th><td><input type="text" name="bank_navn" class="regular-text" value="<?php echo esc_attr($s['bank_navn']); ?>"></td></tr>
                     <tr><th>Reg. nr.</th><td><input type="text" name="bank_reg" value="<?php echo esc_attr($s['bank_reg']); ?>"></td></tr>
                     <tr><th>Konto nr.</th><td><input type="text" name="bank_konto" value="<?php echo esc_attr($s['bank_konto']); ?>"></td></tr>
+                </table>
+
+                <h2>Automatiske opdateringer (GitHub)</h2>
+                <table class="form-table">
+                    <tr>
+                        <th>GitHub token</th>
+                        <td>
+                            <input type="password" name="github_update_token" class="regular-text" placeholder="<?php echo $s['github_update_token'] ? 'sat (udfyld kun for at ændre)' : 'ikke sat'; ?>" autocomplete="off">
+                            <?php if ($s['github_update_token']): ?>
+                                <label style="display:block;margin-top:6px"><input type="checkbox" name="github_update_token_clear" value="1"> Fjern gemt token</label>
+                            <?php endif; ?>
+                            <p class="description">Bruges kun til at tjekke GitHub for opdateringer til dette plugin (undgår 403-fejl pga. GitHub's rate-limit for delt hosting-IP'er). Opret et "classic" Personal Access Token på <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a> med scope <code>public_repo</code> (repoet er offentligt, så det er nok). Feltet gemmer aldrig et blankt token oveni et allerede gemt.</p>
+                        </td>
+                    </tr>
                 </table>
 
                 <h2>Priser (kr.)</h2>

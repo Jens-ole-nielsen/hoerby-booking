@@ -43,9 +43,14 @@
     }).catch(function () { state.days = {}; cb(); });
   }
 
+  function dayInfo(iso) {
+    if (iso < todayISO()) return { status: 'past', half: null };
+    var d = state.days[iso];
+    if (!d) return { status: 'free', half: null };
+    return { status: d.status, half: d.half || null };
+  }
   function dayStatus(iso) {
-    if (iso < todayISO()) return 'past';
-    return state.days[iso] || 'free';
+    return dayInfo(iso).status;
   }
 
   function rangeIsFree(startISO, days) {
@@ -112,10 +117,18 @@
 
     for (var d = 1; d <= daysInMonth; d++) {
       var iso = toISO(state.year, state.month, d);
-      var status = dayStatus(iso);
-      var cls = 'hkof-cal-day ' + status;
-      if (state.checkIn && iso >= state.checkIn && state.checkOut && iso < state.checkOut) cls += ' in-range';
-      if (iso === state.checkIn) cls += ' selected';
+      var info = dayInfo(iso);
+      var cls = 'hkof-cal-day ' + info.status;
+      if (info.half) cls += ' half-' + info.half;
+
+      if (state.checkIn && state.checkOut) {
+        if (iso === state.checkIn && iso === state.checkOut) cls += ' hkof-range-single';
+        else if (iso === state.checkIn) cls += ' hkof-range-start';
+        else if (iso === state.checkOut) cls += ' hkof-range-end';
+        else if (iso > state.checkIn && iso < state.checkOut) cls += ' hkof-range-middle';
+      } else if (iso === state.checkIn) {
+        cls += ' hkof-range-single';
+      }
       html += '<div class="' + cls + '" data-date="' + iso + '">' + d + '</div>';
     }
     grid.innerHTML = html;
