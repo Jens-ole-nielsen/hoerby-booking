@@ -3,7 +3,7 @@
  * Plugin Name: Hørby Booking System
  * Plugin URI: https://github.com/Jens-ole-nielsen/hoerby-booking
  * Description: Booking-system til udlejning af hele huset. Godkendelsesflow, automatisk kontrakt-PDF, manuel depositum-registrering og automatisk faktura 14 dage før arrangementet.
- * Version: 1.1.0
+ * Version: 1.1.1
  * Author: Fair IT
  * Author URI: https://fair-it.dk
  * Text Domain: hkof-booking
@@ -12,7 +12,7 @@
 
 if (!defined('ABSPATH')) exit; // Ingen direkte adgang
 
-define('HKOF_BOOKING_VERSION', '1.1.0');
+define('HKOF_BOOKING_VERSION', '1.1.1');
 define('HKOF_BOOKING_FILE', __FILE__);
 define('HKOF_BOOKING_DIR', plugin_dir_path(__FILE__));
 define('HKOF_BOOKING_URL', plugin_dir_url(__FILE__));
@@ -72,7 +72,14 @@ add_action('plugins_loaded', function () {
 });
 
 // ─── ASSETS ─────────────────────────────────────────────────
+// Indlæses KUN på sider der faktisk indeholder [hkof_booking]-shortcoden,
+// så pluginnet ikke tilføjer CSS/JS på resten af sitet (fx sider med det
+// gamle bookingsystem) mens begge kører side om side under test.
 add_action('wp_enqueue_scripts', function () {
+    if (!is_singular()) return;
+    global $post;
+    if (!$post || !has_shortcode($post->post_content, 'hkof_booking')) return;
+
     wp_enqueue_style('hkof-booking-style', HKOF_BOOKING_URL . 'assets/css/style.css', [], HKOF_BOOKING_VERSION);
     wp_enqueue_script('hkof-booking-js', HKOF_BOOKING_URL . 'assets/js/booking.js', [], HKOF_BOOKING_VERSION, true);
     wp_localize_script('hkof-booking-js', 'HKOF_BOOKING', [
