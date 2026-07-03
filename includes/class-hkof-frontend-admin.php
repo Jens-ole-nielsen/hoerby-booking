@@ -186,7 +186,20 @@ class HKOF_Frontend_Admin {
             <?php if (!in_array($b->status, ['rejected', 'cancelled', 'completed'], true)): ?>
                 <a class="hkof-btn danger" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'cancel', $self_url)); ?>" onclick="return confirm('Annullér denne booking helt?')">🚫 Annullér booking</a>
             <?php endif; ?>
-            <p class="hkof-hint"><a href="<?php echo esc_url(admin_url('admin.php?page=hkof-bookings&action=edit&id=' . $id)); ?>">Skal du rette datoer, priser eller lejerens oplysninger? Det gøres i WordPress-admin →</a></p>
+            <p class="hkof-hint"><a href="<?php echo esc_url(admin_url('admin.php?page=hkof-bookings&action=edit&id=' . $id)); ?>">Skal du rette datoer, priser, lejerens oplysninger eller status manuelt? Det gøres i WordPress-admin →</a></p>
+        </div>
+
+        <div class="hkof-box">
+            <h3>📧 Send mails manuelt</h3>
+            <p class="hkof-hint">Uafhængigt af status ovenfor - brug til at (gen)sende en bestemt mail, fx efter I selv har rettet status i WordPress-admin.</p>
+            <?php if (!$b->booking_ref): ?>
+                <p style="color:#b91c1c;font-size:.9em">Bookingen mangler et lejeaftalenummer. Ret status i WordPress-admin (forskellig fra "Afventer godkendelse") for at få tildelt et nummer, før mails kan sendes.</p>
+            <?php else: ?>
+                <a class="hkof-btn secondary" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'resend_deposit_invoice', $self_url)); ?>" onclick="return confirm('Send opkrævning af depositum til lejer nu?')">📧 Send opkrævning af depositum</a>
+                <a class="hkof-btn secondary" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'resend_contract', $self_url)); ?>" onclick="return confirm('Send kontrakt (lejeaftale-PDF) til lejer nu?')">📄 Send kontrakt</a>
+                <a class="hkof-btn secondary" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'send_invoice_now', $self_url)); ?>" onclick="return confirm('Send faktura til lejer nu? Dette sætter samtidig status til Faktura sendt.')">🧾 Send faktura</a>
+                <a class="hkof-btn secondary" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'resend_final_confirmation', $self_url)); ?>" onclick="return confirm('Send bekræftelse på fuld betaling til lejer nu?')">✅ Send betalingsbekræftelse</a>
+            <?php endif; ?>
         </div>
 
         <div class="hkof-box" id="hkof-note">

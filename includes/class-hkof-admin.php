@@ -251,6 +251,19 @@ class HKOF_Admin {
                     <?php endif; ?>
                     </div>
 
+                    <h2 style="margin-top:24px">📧 Send mails manuelt</h2>
+                    <p class="description" style="margin-top:0">Uafhængigt af status ovenfor - brug disse til at (gen)sende en bestemt mail, fx efter du selv har rettet status under "Rediger booking".</p>
+                    <?php if (!$b->booking_ref): ?>
+                        <p style="color:#b91c1c">Bookingen mangler et lejeaftalenummer. Gem en status forskellig fra "Afventer godkendelse" under "Rediger booking" for at få tildelt et nummer, før mails kan sendes.</p>
+                    <?php else: ?>
+                        <div style="display:flex;flex-direction:column;gap:8px">
+                            <a href="<?php echo self::action_url($id, 'resend_deposit_invoice'); ?>" class="button" onclick="return confirm('Send opkrævning af depositum til lejer nu?')">📧 Send opkrævning af depositum</a>
+                            <a href="<?php echo self::action_url($id, 'resend_contract'); ?>" class="button" onclick="return confirm('Send kontrakt (lejeaftale-PDF) til lejer nu?')">📄 Send kontrakt</a>
+                            <a href="<?php echo self::action_url($id, 'send_invoice_now'); ?>" class="button" onclick="return confirm('Send faktura til lejer nu? Dette sætter samtidig status til \'Faktura sendt\'.')">🧾 Send faktura <span style="color:#6b7280;font-size:11px">(sætter status til "Faktura sendt")</span></a>
+                            <a href="<?php echo self::action_url($id, 'resend_final_confirmation'); ?>" class="button" onclick="return confirm('Send bekræftelse på fuld betaling til lejer nu?')">✅ Send betalingsbekræftelse</a>
+                        </div>
+                    <?php endif; ?>
+
                     <?php
                     $upload_dir = wp_upload_dir();
                     $contract_path = trailingslashit($upload_dir['basedir']) . 'hkof-contracts/lejeaftale-' . $b->booking_ref . '.pdf';
@@ -342,6 +355,21 @@ class HKOF_Admin {
                 </table>
                 <p><button type="button" class="button" id="hkof-edit-recalc-price">↻ Genberegn priser til standardpriser for type + ekstra dage</button></p>
 
+                <h2>Status</h2>
+                <table class="form-table">
+                    <tr>
+                        <th>Status (manuel override)</th>
+                        <td>
+                            <select name="status">
+                                <?php foreach (self::status_labels() as $key => $l): ?>
+                                    <option value="<?php echo esc_attr($key); ?>" <?php selected($b->status, $key); ?>><?php echo esc_html($l[0]); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="description">Skifter KUN status i systemet - sender ingen mails og rører ikke datoer/beløb. Har bookingen intet lejeaftalenummer endnu, tildeles ét automatisk når du gemmer en status der ikke er "Afventer godkendelse". Brug knapperne under "📧 Send mails manuelt" på bookingens side bagefter, hvis lejer/foreningen skal have besked.</p>
+                        </td>
+                    </tr>
+                </table>
+
                 <h2>Interne noter</h2>
                 <textarea name="admin_notes" rows="4" class="large-text" placeholder="Kun synligt for jer internt – vises ikke for lejer"><?php echo esc_textarea($b->admin_notes); ?></textarea>
 
@@ -413,6 +441,8 @@ class HKOF_Admin {
         $environment_fee = (float) ($_POST['environment_fee'] ?? 0);
         $deposit_amount  = (float) ($_POST['deposit_amount'] ?? 0);
         $admin_notes     = sanitize_textarea_field($_POST['admin_notes'] ?? '');
+        $status          = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : $booking->status;
+        if (!array_key_exists($status, self::status_labels())) $status = $booking->status;
 
         $redirect_edit = admin_url('admin.php?page=hkof-bookings&action=edit&id=' . $id);
 
@@ -433,7 +463,7 @@ class HKOF_Admin {
             exit;
         }
 
-        HKOF_DB::update($id, [
+        $update = [
             'first_name'      => $first_name,
             'last_name'       => $last_name,
             'address'         => $address,
@@ -450,7 +480,15 @@ class HKOF_Admin {
             'environment_fee' => $environment_fee,
             'deposit_amount'  => $deposit_amount,
             'admin_notes'     => $admin_notes,
-        ]);
+            'status'          => $status,
+        ];
+        // Manuel status-ændring uden om det normale godkendelsesflow: sørg for at bookingen
+        // altid har et lejeaftalenummer, så efterfølgende manuelle mails/PDF'er/Drive-filnavne
+        // ikke ender med en tom reference (samme nummerering som "Godkend"-handlingen bruger).
+        if ($status !== 'pending' && empty($booking->booking_ref)) {
+            $update['booking_ref'] = HKOF_DB::next_booking_ref();
+        }
+        HKOF_DB::update($id, $update);
 
         wp_safe_redirect(admin_url('admin.php?page=hkof-bookings&action=view&id=' . $id . '&done=1'));
         exit;
@@ -546,6 +584,12 @@ class HKOF_Admin {
             case 'retry_gdrive_upload':
                 $pdf_path = HKOF_GDrive::locate_or_regenerate_contract($booking);
                 if ($pdf_path) HKOF_GDrive::upload_contract($booking, $pdf_path);
+                break;
+
+            case 'resend_final_confirmation':
+                if ($booking->booking_ref) {
+                    HKOF_Mailer::send_final_payment_confirmation($booking);
+                }
                 break;
         }
 
