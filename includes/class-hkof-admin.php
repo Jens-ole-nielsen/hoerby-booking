@@ -50,6 +50,22 @@ class HKOF_Admin {
         return sprintf('<span style="background:%s;color:#fff;padding:3px 9px;border-radius:12px;font-size:12px;font-weight:600">%s</span>', $l[1], esc_html($l[0]));
     }
 
+    public static function render_reject_reason_script() {
+        static $printed = false;
+        if ($printed) return;
+        $printed = true;
+        ?>
+        <script>
+        function hkofRejectWithReason(el, baseUrl) {
+            var reason = window.prompt('Begrundelse for afvisning (sendes med i mailen til lejeren - kan stå tomt):', '');
+            if (reason === null) return false; // fortrudt
+            window.location.href = baseUrl + '&reason=' + encodeURIComponent(reason);
+            return false;
+        }
+        </script>
+        <?php
+    }
+
     public static function render_list() {
         if (!current_user_can('edit_posts')) return;
 
@@ -164,6 +180,7 @@ class HKOF_Admin {
         $b = HKOF_DB::get($id);
         if (!$b) { echo '<div class="wrap"><p>Booking ikke fundet.</p></div>'; return; }
         $s = HKOF_Settings::all();
+        self::render_reject_reason_script();
         ?>
         <div class="wrap hkof-wrap">
             <h1>Booking – <?php echo esc_html($b->first_name . ' ' . $b->last_name); ?></h1>
@@ -212,6 +229,9 @@ class HKOF_Admin {
                     <?php if ($b->deposit_paid_at): ?><p>💰 Depositum modtaget: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->deposit_paid_at))); ?></p><?php endif; ?>
                     <?php if ($b->invoice_sent_at): ?><p>🧾 Faktura sendt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->invoice_sent_at))); ?></p><?php endif; ?>
                     <?php if ($b->invoice_paid_at): ?><p>✅ Faktura betalt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->invoice_paid_at))); ?></p><?php endif; ?>
+                    <?php if ($b->status === 'rejected'): ?>
+                        <p>❌ Afvist<?php if (!empty($b->rejected_reason)): ?> - begrundelse (sendt til lejer): <em><?php echo esc_html($b->rejected_reason); ?></em><?php else: ?> (ingen begrundelse angivet)<?php endif; ?></p>
+                    <?php endif; ?>
                     <div id="hkof-note" style="margin-top:18px">
                         <h3 style="margin-bottom:4px">📝 Interne noter</h3>
                         <p class="description" style="margin-top:0">Kun synligt for jer internt – deles af alle med adgang til systemet, vises aldrig for lejer.</p>
@@ -234,7 +254,7 @@ class HKOF_Admin {
                     <a href="?page=hkof-bookings&action=edit&id=<?php echo $id; ?>" class="button">✏️ Rediger booking</a>
                     <?php if ($b->status === 'pending'): ?>
                         <a href="<?php echo self::action_url($id, 'approve'); ?>" class="button button-primary" onclick="return confirm('Godkend booking og send opkrævning af depositum til lejer?')">✅ Godkend & send opkrævning</a>
-                        <a href="<?php echo self::action_url($id, 'reject'); ?>" class="button" onclick="return confirm('Afvis denne booking?')">❌ Afvis</a>
+                        <a href="#" class="button" onclick="return hkofRejectWithReason(this, '<?php echo esc_js(self::action_url($id, 'reject')); ?>')">❌ Afvis</a>
                     <?php elseif ($b->status === 'approved'): ?>
                         <a href="<?php echo self::action_url($id, 'mark_deposit_paid'); ?>" class="button button-primary" onclick="return confirm('Bekræft at depositum er modtaget – dette sender kontrakten til lejer.')">💰 Registrér depositum modtaget & send kontrakt</a>
                         <a href="<?php echo self::action_url($id, 'resend_deposit_invoice'); ?>" class="button">📧 Gensend opkrævning af depositum</a>
@@ -548,7 +568,9 @@ class HKOF_Admin {
                 break;
 
             case 'reject':
-                HKOF_DB::update($id, ['status' => 'rejected']);
+                $reject_reason = isset($_GET['reason']) ? sanitize_textarea_field(wp_unslash($_GET['reason'])) : '';
+                HKOF_DB::update($id, ['status' => 'rejected', 'rejected_reason' => $reject_reason ?: null]);
+                $booking = HKOF_DB::get($id);
                 HKOF_Mailer::send_rejection($booking);
                 break;
 

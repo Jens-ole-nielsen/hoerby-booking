@@ -165,13 +165,17 @@ class HKOF_Frontend_Admin {
             <?php if (!empty($b->gdrive_contract_error)): ?>
                 <p style="color:#b91c1c;font-size:.88em">⚠️ Kontrakten kunne ikke gemmes i Google Drive (<?php echo esc_html($b->gdrive_contract_error); ?>). Mailen til lejeren er sendt som normalt.</p>
             <?php endif; ?>
+            <?php if ($b->status === 'rejected'): ?>
+                <p style="font-size:.9em">❌ Afvist<?php if (!empty($b->rejected_reason)): ?> - begrundelse (sendt til lejer): <em><?php echo esc_html($b->rejected_reason); ?></em><?php else: ?> (ingen begrundelse angivet)<?php endif; ?></p>
+            <?php endif; ?>
         </div>
 
+        <?php HKOF_Admin::render_reject_reason_script(); ?>
         <div class="hkof-box">
             <h3>Handlinger</h3>
             <?php if ($b->status === 'pending'): ?>
                 <a class="hkof-btn" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'approve', $self_url)); ?>" onclick="return confirm('Godkend booking og send opkrævning af depositum til lejer?')">✅ Godkend &amp; send opkrævning</a>
-                <a class="hkof-btn danger" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'reject', $self_url)); ?>" onclick="return confirm('Afvis denne booking?')">❌ Afvis</a>
+                <a class="hkof-btn danger" href="#" onclick="return hkofRejectWithReason(this, '<?php echo esc_js(HKOF_Admin::action_url($id, 'reject', $self_url)); ?>')">❌ Afvis</a>
             <?php elseif ($b->status === 'approved'): ?>
                 <a class="hkof-btn" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'mark_deposit_paid', $self_url)); ?>" onclick="return confirm('Bekræft at depositum er modtaget – dette sender kontrakten til lejer.')">💰 Registrér depositum modtaget &amp; send kontrakt</a>
                 <a class="hkof-btn secondary" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'resend_deposit_invoice', $self_url)); ?>">📧 Gensend opkrævning</a>

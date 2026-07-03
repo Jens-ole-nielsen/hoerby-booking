@@ -9,7 +9,7 @@
 .hkof-cal-nav button{background:none;border:1px solid #ccc;border-radius:6px;padding:4px 12px;cursor:pointer}
 .hkof-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
 .hkof-cal-daylabel{text-align:center;font-size:11px;font-weight:700;color:#888;padding-bottom:4px}
-.hkof-cal-day{position:relative;text-align:center;padding:9px 0;border-radius:6px;cursor:pointer;font-size:13px;border:1px solid transparent}
+.hkof-cal-day{position:relative;z-index:0;overflow:hidden;text-align:center;padding:9px 0;border-radius:6px;cursor:pointer;font-size:13px;border:1px solid transparent}
 .hkof-cal-day.hkof-empty{cursor:default}
 .hkof-cal-day.free{background:#f0fdf4}
 .hkof-cal-day.pending{background:#fef3c7;cursor:not-allowed;color:#92400e}
@@ -18,15 +18,37 @@
 .hkof-cal-day.selected{background:#2563eb !important;color:#fff;font-weight:700}
 .hkof-cal-day.in-range{background:#bfdbfe !important}
 
-/* Halve dage for EKSISTERENDE bookinger (ankomst-/afgangsdag, kl. 12.00-skift) */
-.hkof-cal-day.booked.half-start{background:linear-gradient(to right, #f0fdf4 50%, #fee2e2 50%) !important}
-.hkof-cal-day.booked.half-end{background:linear-gradient(to right, #fee2e2 50%, #f0fdf4 50%) !important}
-.hkof-cal-day.pending.half-start{background:linear-gradient(to right, #f0fdf4 50%, #fef3c7 50%) !important}
-.hkof-cal-day.pending.half-end{background:linear-gradient(to right, #fef3c7 50%, #f0fdf4 50%) !important}
+/* Halve dage (ankomst-/afgangsdag, kl. 12.00-skift) - bruges for BÅDE eksisterende
+   bookinger og den periode man er ved at vælge. Implementeret som to fyldte
+   ::before/::after-halvdele i stedet for en CSS linear-gradient, fordi en
+   "hård" 50/50-gradient kombineret med border-radius giver en synlig
+   sømlinje/stribe i Safari/WebKit (det brugeren så på mobil) - to solide
+   halve blokke har ingen kant-artefakt og klippes pænt af overflow:hidden
+   på selve cellen, så de runde hjørner stadig ser korrekte ud. */
+.hkof-cal-day.half-start,.hkof-cal-day.half-end,
+.hkof-cal-day.hkof-range-start,.hkof-cal-day.hkof-range-end{background:transparent !important}
+.hkof-cal-day.half-start::before,.hkof-cal-day.half-end::before,
+.hkof-cal-day.hkof-range-start::before,.hkof-cal-day.hkof-range-end::before{content:'';position:absolute;z-index:-1;top:0;bottom:0;left:0;width:50%}
+.hkof-cal-day.half-start::after,.hkof-cal-day.half-end::after,
+.hkof-cal-day.hkof-range-start::after,.hkof-cal-day.hkof-range-end::after{content:'';position:absolute;z-index:-1;top:0;bottom:0;right:0;width:50%}
+
+/* Halve dage for EKSISTERENDE bookinger */
+.hkof-cal-day.booked.half-start::before{background:#f0fdf4}
+.hkof-cal-day.booked.half-start::after{background:#fee2e2}
+.hkof-cal-day.booked.half-end::before{background:#fee2e2}
+.hkof-cal-day.booked.half-end::after{background:#f0fdf4}
+.hkof-cal-day.pending.half-start::before{background:#f0fdf4}
+.hkof-cal-day.pending.half-start::after{background:#fef3c7}
+.hkof-cal-day.pending.half-end::before{background:#fef3c7}
+.hkof-cal-day.pending.half-end::after{background:#f0fdf4}
 
 /* Halve dage for den periode man er ved at VÆLGE i kalenderen */
-.hkof-cal-day.hkof-range-start{background:linear-gradient(to right, #f0fdf4 50%, #2563eb 50%) !important;color:#1e3a8a;font-weight:700}
-.hkof-cal-day.hkof-range-end{background:linear-gradient(to right, #2563eb 50%, #f0fdf4 50%) !important;color:#1e3a8a;font-weight:700}
+.hkof-cal-day.hkof-range-start::before{background:#f0fdf4}
+.hkof-cal-day.hkof-range-start::after{background:#2563eb}
+.hkof-cal-day.hkof-range-start{color:#1e3a8a;font-weight:700}
+.hkof-cal-day.hkof-range-end::before{background:#2563eb}
+.hkof-cal-day.hkof-range-end::after{background:#f0fdf4}
+.hkof-cal-day.hkof-range-end{color:#1e3a8a;font-weight:700}
 .hkof-cal-day.hkof-range-middle{background:#bfdbfe !important}
 .hkof-cal-day.hkof-range-single{background:#2563eb !important;color:#fff;font-weight:700}
 .hkof-form{border:1px solid #e2e2e2;border-radius:8px;padding:18px}
