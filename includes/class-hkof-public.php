@@ -101,10 +101,15 @@ class HKOF_Public {
         $month = isset($_GET['month']) ? sanitize_text_field($_GET['month']) : date('Y-m');
         $start = $month . '-01';
         $end = date('Y-m-t', strtotime($start));
+        // exclude_id: bruges af admin-kalendervisningen (rediger/vis booking), så bookingens
+        // EGNE dage ikke vises som "optaget" i dens egen kalenderforhåndsvisning - kun rigtige
+        // andre bookingers optagethed er interessant der, den aktuelle booking markeres separat.
+        $exclude_id = isset($_GET['exclude_id']) ? (int) $_GET['exclude_id'] : 0;
 
         $bookings = HKOF_DB::get_occupied_between($start, $end);
         $days = [];
         foreach ($bookings as $b) {
+            if ($exclude_id && (int) $b->id === $exclude_id) continue;
             $status = ($b->status === 'pending') ? 'pending' : 'booked';
             $single_day = ($b->check_in_date === $b->check_out_date);
             $cursor = strtotime($b->check_in_date);

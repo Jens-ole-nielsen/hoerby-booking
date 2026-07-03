@@ -350,6 +350,27 @@ class HKOF_Admin {
                     </tr>
                     <tr><th>Ankomstdato</th><td><input type="date" name="check_in_date" id="hkof-edit-checkin" value="<?php echo esc_attr($b->check_in_date); ?>" required></td></tr>
                     <tr>
+                        <th>Kalender-overblik</th>
+                        <td>
+                            <div class="hkof-calendar" style="max-width:420px">
+                                <div class="hkof-legend">
+                                    <span><span class="hkof-dot hkof-free"></span>Ledig</span>
+                                    <span><span class="hkof-dot hkof-pending"></span>Afventer</span>
+                                    <span><span class="hkof-dot hkof-booked"></span>Reserveret</span>
+                                    <span>🔵 Denne booking</span>
+                                </div>
+                                <div class="hkof-cal-nav">
+                                    <button type="button" id="hkof-edit-cal-prev">&larr;</button>
+                                    <span id="hkof-edit-cal-title"></span>
+                                    <button type="button" id="hkof-edit-cal-next">&rarr;</button>
+                                </div>
+                                <div class="hkof-cal-grid" id="hkof-edit-cal-grid"></div>
+                            </div>
+                            <p id="hkof-edit-cal-warning" style="display:none;color:#b91c1c;font-weight:600;margin-top:8px">⚠️ Den valgte periode overlapper med en anden booking - dobbelttjek datoerne.</p>
+                            <p class="description">Klik en ledig dag i kalenderen for at sætte ankomstdato, eller ret datoerne manuelt nedenfor.</p>
+                        </td>
+                    </tr>
+                    <tr>
                         <th>Ekstra dage</th>
                         <td>
                             <select name="extra_days" id="hkof-edit-extra">
@@ -433,6 +454,22 @@ class HKOF_Admin {
                 document.getElementById('hkof-edit-rental').value = currentBasePrice();
                 document.getElementById('hkof-edit-extrafee').value = extra * extraPrice;
             });
+
+            if (window.HKOF_AdminCalendar && window.HKOF_BOOKING) {
+                window.HKOF_AdminCalendar({
+                    gridId: 'hkof-edit-cal-grid',
+                    titleId: 'hkof-edit-cal-title',
+                    prevId: 'hkof-edit-cal-prev',
+                    nextId: 'hkof-edit-cal-next',
+                    warningId: 'hkof-edit-cal-warning',
+                    checkInInputId: 'hkof-edit-checkin',
+                    checkOutInputId: 'hkof-edit-checkout',
+                    editable: true,
+                    excludeId: <?php echo (int) $id; ?>,
+                    ajaxUrl: HKOF_BOOKING.ajaxUrl,
+                    nonce: HKOF_BOOKING.nonce
+                });
+            }
         })();
         </script>
         <?php

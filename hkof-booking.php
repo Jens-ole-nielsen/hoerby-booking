@@ -3,7 +3,7 @@
  * Plugin Name: Lokale Booking
  * Plugin URI: https://github.com/Jens-ole-nielsen/hoerby-booking
  * Description: Booking-system til udlejning af hele huset. Godkendelsesflow, automatisk kontrakt-PDF, manuel depositum-registrering, automatisk faktura 14 dage før arrangementet, samt Google Drive-integration til automatisk kontrakt-backup og planlagt databackup, redigerbare kontrakttekster og logo i alle mails.
- * Version: 1.9.1
+ * Version: 1.10.0
  * Author: Fair IT
  * Author URI: https://fair-it.dk
  * Text Domain: hkof-booking
@@ -12,7 +12,7 @@
 
 if (!defined('ABSPATH')) exit; // Ingen direkte adgang
 
-define('HKOF_BOOKING_VERSION', '1.9.1');
+define('HKOF_BOOKING_VERSION', '1.10.0');
 define('HKOF_BOOKING_FILE', __FILE__);
 define('HKOF_BOOKING_DIR', plugin_dir_path(__FILE__));
 define('HKOF_BOOKING_URL', plugin_dir_url(__FILE__));
@@ -93,17 +93,39 @@ add_action('plugins_loaded', function () {
 add_action('wp_enqueue_scripts', function () {
     if (!is_singular()) return;
     global $post;
-    if (!$post || !has_shortcode($post->post_content, 'hkof_booking')) return;
+    if (!$post) return;
+    $has_public = has_shortcode($post->post_content, 'hkof_booking');
+    $has_fe_admin = has_shortcode($post->post_content, 'hkof_booking_admin');
+    if (!$has_public && !$has_fe_admin) return;
 
+    // Kalender-CSS'en (hkof-cal-*) bruges af BÅDE den offentlige bookingwidget og
+    // front-end admin-dashboardets booking-forhåndsvisning, så style.css loades for begge.
     wp_enqueue_style('hkof-booking-style', HKOF_BOOKING_URL . 'assets/css/style.css', [], HKOF_BOOKING_VERSION);
-    wp_enqueue_script('hkof-booking-js', HKOF_BOOKING_URL . 'assets/js/booking.js', [], HKOF_BOOKING_VERSION, true);
-    wp_localize_script('hkof-booking-js', 'HKOF_BOOKING', [
-        'ajaxUrl' => admin_url('admin-ajax.php'),
-        'nonce'   => wp_create_nonce('hkof_booking_nonce'),
-    ]);
+
+    if ($has_public) {
+        wp_enqueue_script('hkof-booking-js', HKOF_BOOKING_URL . 'assets/js/booking.js', [], HKOF_BOOKING_VERSION, true);
+        wp_localize_script('hkof-booking-js', 'HKOF_BOOKING', [
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce'   => wp_create_nonce('hkof_booking_nonce'),
+        ]);
+    }
+    if ($has_fe_admin) {
+        wp_enqueue_script('hkof-admin-calendar-js', HKOF_BOOKING_URL . 'assets/js/admin-calendar.js', [], HKOF_BOOKING_VERSION, false);
+        wp_localize_script('hkof-admin-calendar-js', 'HKOF_BOOKING', [
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce'   => wp_create_nonce('hkof_booking_nonce'),
+        ]);
+    }
 });
 
 add_action('admin_enqueue_scripts', function ($hook) {
     if (strpos($hook, 'hkof-') === false) return;
     wp_enqueue_style('hkof-booking-admin-style', HKOF_BOOKING_URL . 'assets/css/admin.css', [], HKOF_BOOKING_VERSION);
+    // Kalender-forhåndsvisning på "Rediger booking"-siden genbruger den offentlige kalenders CSS-klasser.
+    wp_enqueue_style('hkof-booking-style', HKOF_BOOKING_URL . 'assets/css/style.css', [], HKOF_BOOKING_VERSION);
+    wp_enqueue_script('hkof-admin-calendar-js', HKOF_BOOKING_URL . 'assets/js/admin-calendar.js', [], HKOF_BOOKING_VERSION, false);
+    wp_localize_script('hkof-admin-calendar-js', 'HKOF_BOOKING', [
+        'ajaxUrl' => admin_url('admin-ajax.php'),
+        'nonce'   => wp_create_nonce('hkof_booking_nonce'),
+    ]);
 });

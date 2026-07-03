@@ -162,6 +162,40 @@ class HKOF_Frontend_Admin {
                 <tr><th>Lejeafgift i alt</th><td><strong><?php echo number_format((float) $b->rental_amount + (float) $b->extra_days_fee + (float) $b->environment_fee, 2, ',', '.'); ?> kr.</strong></td></tr>
                 <tr><th>Depositum</th><td><?php echo number_format((float) $b->deposit_amount, 2, ',', '.'); ?> kr.</td></tr>
             </table>
+
+            <div class="hkof-calendar" style="max-width:420px;margin-top:16px">
+                <div class="hkof-legend">
+                    <span><span class="hkof-dot hkof-free"></span>Ledig</span>
+                    <span><span class="hkof-dot hkof-pending"></span>Afventer</span>
+                    <span><span class="hkof-dot hkof-booked"></span>Reserveret</span>
+                    <span>🔵 Denne booking</span>
+                </div>
+                <div class="hkof-cal-nav">
+                    <button type="button" id="hkof-fe-cal-prev">&larr;</button>
+                    <span id="hkof-fe-cal-title"></span>
+                    <button type="button" id="hkof-fe-cal-next">&rarr;</button>
+                </div>
+                <div class="hkof-cal-grid" id="hkof-fe-cal-grid"></div>
+            </div>
+            <script>
+            (function () {
+                if (window.HKOF_AdminCalendar && window.HKOF_BOOKING) {
+                    window.HKOF_AdminCalendar({
+                        gridId: 'hkof-fe-cal-grid',
+                        titleId: 'hkof-fe-cal-title',
+                        prevId: 'hkof-fe-cal-prev',
+                        nextId: 'hkof-fe-cal-next',
+                        editable: false,
+                        excludeId: <?php echo (int) $id; ?>,
+                        checkIn: '<?php echo esc_js($b->check_in_date); ?>',
+                        checkOut: '<?php echo esc_js($b->check_out_date); ?>',
+                        ajaxUrl: HKOF_BOOKING.ajaxUrl,
+                        nonce: HKOF_BOOKING.nonce
+                    });
+                }
+            })();
+            </script>
+
             <?php if (!empty($b->gdrive_contract_error)): ?>
                 <p style="color:#b91c1c;font-size:.88em">⚠️ Kontrakten kunne ikke gemmes i Google Drive (<?php echo esc_html($b->gdrive_contract_error); ?>). Mailen til lejeren er sendt som normalt.</p>
             <?php endif; ?>
