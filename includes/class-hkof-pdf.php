@@ -25,6 +25,12 @@ class HKOF_PDF extends FPDF {
         if ($this->logo_path && file_exists($this->logo_path)) {
             $this->Image($this->logo_path, 145, 8, 55);
         }
+        // Fra side 2 og frem er der intet fast sidehoved med foreningsnavn (det ligger kun
+        // på side 1), så uden dette ville brødteksten begynde helt oppe i logoets område og
+        // kollidere med det. Vi rykker derfor startpunktet for teksten et stykke ned.
+        if ($this->PageNo() > 1) {
+            $this->SetY(26);
+        }
     }
 
     public function Footer() {
@@ -157,8 +163,9 @@ class HKOF_PDF extends FPDF {
             $pdf->Ln(1);
         }
 
-        // ── Side 2: Opvask, rengøring, ordensregler ──
-        $pdf->AddPage();
+        // Opvask/rengøring/ordensregler fortsætter i naturligt flow (ingen tvunget sideskift
+        // her længere) - FPDF bryder selv siden når der ikke er mere plads.
+        $pdf->Ln(4);
         $pdf->SetFont('Arial', 'B', 11);
         $pdf->Cell(0, 7, self::enc('Opvask:'), 0, 1);
         $pdf->SetFont('Arial', '', 10);
