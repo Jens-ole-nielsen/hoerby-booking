@@ -21,18 +21,18 @@ class HKOF_Admin {
         add_action('admin_enqueue_scripts', function ($hook) {
             if (strpos($hook, 'hkof-') !== false) wp_enqueue_media();
         });
-        // Vis en tydelig påmindelse på alle Hørby Booking-sider når mail-afsendelse er sat på pause
+        // Vis en tydelig påmindelse på alle Lokale Booking-sider når mail-afsendelse er sat på pause
         add_action('admin_notices', function () {
             $screen = function_exists('get_current_screen') ? get_current_screen() : null;
             if (!$screen || strpos($screen->id, 'hkof-') === false) return;
             if (HKOF_Settings::mail_paused()) {
-                echo '<div class="notice notice-warning"><p>🔕 <strong>Mail-afsendelse er sat på pause</strong> for Hørby Booking – gæster og foreningen får IKKE besked om ændringer lige nu. <a href="' . esc_url(admin_url('admin.php?page=hkof-mails')) . '">Slå det til igen her</a>.</p></div>';
+                echo '<div class="notice notice-warning"><p>🔕 <strong>Mail-afsendelse er sat på pause</strong> for Lokale Booking – gæster og foreningen får IKKE besked om ændringer lige nu. <a href="' . esc_url(admin_url('admin.php?page=hkof-mails')) . '">Slå det til igen her</a>.</p></div>';
             }
         });
     }
 
     public static function menu() {
-        add_menu_page('Hørby Booking', 'Hørby Booking', 'edit_posts', 'hkof-bookings', [__CLASS__, 'render_list'], 'dashicons-calendar-alt', 26);
+        add_menu_page('Lokale Booking', 'Lokale Booking', 'edit_posts', 'hkof-bookings', [__CLASS__, 'render_list'], 'dashicons-calendar-alt', 26);
         add_submenu_page('hkof-bookings', 'Bookinger', 'Bookinger', 'edit_posts', 'hkof-bookings', [__CLASS__, 'render_list']);
         add_submenu_page('hkof-bookings', 'Indstillinger', 'Indstillinger', 'manage_options', 'hkof-settings', ['HKOF_Settings', 'render_settings_page']);
         add_submenu_page('hkof-bookings', 'E-mails', '📧 E-mails', 'manage_options', 'hkof-mails', ['HKOF_Settings', 'render_mails_page']);
@@ -68,7 +68,7 @@ class HKOF_Admin {
         $total = array_sum($counts);
         ?>
         <div class="wrap hkof-wrap">
-            <h1>Hørby Booking – Bookinger</h1>
+            <h1>Lokale Booking – Bookinger</h1>
 
             <div style="padding:10px 16px;border-radius:8px;margin-bottom:16px;border:1px solid <?php echo $mail_paused ? '#fca5a5' : '#e2e2e2'; ?>;background:<?php echo $mail_paused ? '#fee2e2' : '#f6f7f7'; ?>">
                 <form method="post" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0">

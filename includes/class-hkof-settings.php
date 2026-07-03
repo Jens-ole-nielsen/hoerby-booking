@@ -167,7 +167,7 @@ class HKOF_Settings {
         $logo_url = $s['logo_id'] ? wp_get_attachment_url($s['logo_id']) : '';
         ?>
         <div class="wrap hkof-wrap">
-            <h1>Hørby Booking – Indstillinger</h1>
+            <h1>Lokale Booking – Indstillinger</h1>
             <form method="post">
                 <?php wp_nonce_field('hkof_save_settings', 'hkof_settings_nonce'); ?>
 
@@ -290,7 +290,7 @@ class HKOF_Settings {
         $paused = self::mail_paused();
         ?>
         <div class="wrap hkof-wrap">
-            <h1>Hørby Booking – E-mails</h1>
+            <h1>Lokale Booking – E-mails</h1>
 
             <div style="padding:14px 18px;border-radius:8px;margin-bottom:20px;border:1px solid <?php echo $paused ? '#fca5a5' : '#86efac'; ?>;background:<?php echo $paused ? '#fee2e2' : '#dcfce7'; ?>">
                 <form method="post" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0">
