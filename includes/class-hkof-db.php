@@ -158,6 +158,45 @@ class HKOF_DB {
         return sprintf('HKOF-%s-%04d', $year, $next);
     }
 
+    // ─── EKSPORT / GENDANNELSE (bruges af Google Drive-backup) ──────────
+    /** Henter alle rå bookingdata som associative arrays, klar til JSON-eksport */
+    public static function all_for_export() {
+        global $wpdb;
+        return $wpdb->get_results("SELECT * FROM " . self::table() . " ORDER BY id ASC", ARRAY_A);
+    }
+
+    /** Navnene på tabellens faktiske kolonner - bruges til at filtrere gendannelsesdata sikkert */
+    private static function table_columns() {
+        global $wpdb;
+        $cols = $wpdb->get_col("DESCRIBE " . self::table());
+        return $cols ?: [];
+    }
+
+    /**
+     * Gendanner bookinger fra en backup-eksport. ERSTATTER alt nuværende
+     * indhold i tabellen (tømmer den først), så tabellen efter kørslen
+     * matcher backup-tidspunktet præcist, med de oprindelige ID'er bevaret.
+     * Filtrerer ukendte kolonner væk, så en ældre/nyere backup ikke fejler
+     * hvis skemaet er ændret siden backuppen blev taget.
+     */
+    public static function restore_from_export($rows) {
+        global $wpdb;
+        if (!is_array($rows) || empty($rows)) return 0;
+        $table = self::table();
+        $valid_columns = self::table_columns();
+        if (!$valid_columns) return 0;
+
+        $wpdb->query("TRUNCATE TABLE $table");
+
+        $count = 0;
+        foreach ($rows as $row) {
+            if (!is_array($row) || empty($row['id'])) continue;
+            $filtered = array_intersect_key($row, array_flip($valid_columns));
+            if ($wpdb->insert($table, $filtered) !== false) $count++;
+        }
+        return $count;
+    }
+
     /**
      * Bookinger der er bekræftet (depositum betalt) og hvor check_in_date
      * er nøjagtig X dage ude, og hvor der ikke allerede er sendt faktura.

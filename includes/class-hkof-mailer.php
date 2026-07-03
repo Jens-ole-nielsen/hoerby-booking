@@ -293,6 +293,11 @@ class HKOF_Mailer {
 
     /** Sendes til lejer når bookingen godkendes – med kontrakt-PDF vedhæftet */
     public static function send_contract($booking, $pdf_path) {
+        // Gemmer samtidig en kopi af kontrakten i Google Drive (hvis forbundet) -
+        // sker uafhængigt af om selve mailen rent faktisk sendes (fx ved pause),
+        // så der altid ligger en backup så snart kontrakten genereres.
+        HKOF_GDrive::upload_contract($booking, $pdf_path);
+
         $tokens = self::tokens($booking);
         $r = self::render('contract', $tokens);
         if (!$r) return;

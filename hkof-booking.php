@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Lokale Booking
  * Plugin URI: https://github.com/Jens-ole-nielsen/hoerby-booking
- * Description: Booking-system til udlejning af hele huset. Godkendelsesflow, automatisk kontrakt-PDF, manuel depositum-registrering og automatisk faktura 14 dage før arrangementet.
- * Version: 1.5.0
+ * Description: Booking-system til udlejning af hele huset. Godkendelsesflow, automatisk kontrakt-PDF, manuel depositum-registrering, automatisk faktura 14 dage før arrangementet, samt Google Drive-integration til automatisk kontrakt-backup og planlagt databackup.
+ * Version: 1.6.0
  * Author: Fair IT
  * Author URI: https://fair-it.dk
  * Text Domain: hkof-booking
@@ -12,7 +12,7 @@
 
 if (!defined('ABSPATH')) exit; // Ingen direkte adgang
 
-define('HKOF_BOOKING_VERSION', '1.5.0');
+define('HKOF_BOOKING_VERSION', '1.6.0');
 define('HKOF_BOOKING_FILE', __FILE__);
 define('HKOF_BOOKING_DIR', plugin_dir_path(__FILE__));
 define('HKOF_BOOKING_URL', plugin_dir_url(__FILE__));
@@ -25,6 +25,7 @@ require_once HKOF_BOOKING_DIR . 'includes/class-hkof-mailer.php';
 require_once HKOF_BOOKING_DIR . 'includes/class-hkof-admin.php';
 require_once HKOF_BOOKING_DIR . 'includes/class-hkof-public.php';
 require_once HKOF_BOOKING_DIR . 'includes/class-hkof-cron.php';
+require_once HKOF_BOOKING_DIR . 'includes/class-hkof-gdrive.php';
 
 // ─── AUTOMATISKE OPDATERINGER VIA GITHUB ───────────────────
 // Gør at WP-admin viser "opdatering tilgængelig" ligesom et almindeligt
@@ -59,6 +60,7 @@ register_activation_hook(__FILE__, function () {
 
 register_deactivation_hook(__FILE__, function () {
     HKOF_Cron::unschedule();
+    HKOF_GDrive::unschedule();
 });
 
 // ─── AUTOMATISK DATABASE-OPGRADERING ────────────────────────
@@ -79,6 +81,7 @@ add_action('plugins_loaded', function () {
     HKOF_Admin::init();
     HKOF_Public::init();
     HKOF_Cron::init();
+    HKOF_GDrive::init();
 });
 
 // ─── ASSETS ─────────────────────────────────────────────────
