@@ -96,7 +96,7 @@ class HKOF_Admin {
             <div style="padding:12px 16px;border-radius:8px;margin-bottom:16px;border:1px solid #c3d9ec;background:#f0f6fc">
                 <p style="margin:0 0 6px"><strong>📌 Shortcodes til jeres side</strong></p>
                 <p style="margin:0 0 4px">Booking-kalender/formular (det gæster ser): <code style="user-select:all;background:#fff;padding:2px 8px;border:1px solid #ddd;border-radius:4px">[hkof_booking]</code> – sæt ind på jeres almindelige booking-side.</p>
-                <p style="margin:0">Front-end admin-dashboard (godkend/administrér bookinger uden om wp-admin): <code style="user-select:all;background:#fff;padding:2px 8px;border:1px solid #ddd;border-radius:4px">[hkof_booking_admin]</code> – sæt ind på en skjult/adgangsbeskyttet side, kræver at man er logget ind med redigerings-rettighed.</p>
+                <p style="margin:0">Front-end admin-dashboard (fuld administration af bookinger uden om wp-admin - godkend, redigér alle felter/priser/status, send mails manuelt): <code style="user-select:all;background:#fff;padding:2px 8px;border:1px solid #ddd;border-radius:4px">[hkof_booking_admin]</code> – sæt ind på en skjult/adgangsbeskyttet side. Kræver login med mindst redigerings-rettighed ("edit_posts") - giv fx bestyrelsesmedlemmer WordPress-rollen "Skribent"/"Forfatter" så de kan bruge denne side, uden at de får adgang til Indstillinger/E-mails/Kontrakttekst/Google Drive (som kræver administrator-rettighed).</p>
             </div>
 
             <div style="padding:10px 16px;border-radius:8px;margin-bottom:16px;border:1px solid <?php echo $mail_paused ? '#fca5a5' : '#e2e2e2'; ?>;background:<?php echo $mail_paused ? '#fee2e2' : '#f6f7f7'; ?>">
@@ -501,22 +501,25 @@ class HKOF_Admin {
         $status          = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : $booking->status;
         if (!array_key_exists($status, self::status_labels())) $status = $booking->status;
 
-        $redirect_edit = admin_url('admin.php?page=hkof-bookings&action=edit&id=' . $id);
+        // redirect_to peger på EDIT-siden (wp-admin eller front-end) - bruges kun ved fejl,
+        // så brugeren lander tilbage på formularen (ikke visningssiden) og kan rette fejlen.
+        $posted_redirect = isset($_POST['redirect_to']) ? esc_url_raw(wp_unslash($_POST['redirect_to'])) : '';
+        $redirect_edit = $posted_redirect ?: admin_url('admin.php?page=hkof-bookings&action=edit&id=' . $id);
 
         if (!$first_name || !$last_name || !$address || !$postal || !$email || !$phone || !$purpose || !$check_in || !$check_out) {
-            wp_safe_redirect($redirect_edit . '&error=' . rawurlencode('Udfyld venligst alle felter.'));
+            wp_safe_redirect(add_query_arg('error', rawurlencode('Udfyld venligst alle felter.'), $redirect_edit));
             exit;
         }
         if (!is_email($email)) {
-            wp_safe_redirect($redirect_edit . '&error=' . rawurlencode('Ugyldig email-adresse.'));
+            wp_safe_redirect(add_query_arg('error', rawurlencode('Ugyldig email-adresse.'), $redirect_edit));
             exit;
         }
         if (strtotime($check_out) < strtotime($check_in)) {
-            wp_safe_redirect($redirect_edit . '&error=' . rawurlencode('Afgangsdato kan ikke være før ankomstdato.'));
+            wp_safe_redirect(add_query_arg('error', rawurlencode('Afgangsdato kan ikke være før ankomstdato.'), $redirect_edit));
             exit;
         }
         if (HKOF_DB::has_overlap($check_in, $check_out, $id)) {
-            wp_safe_redirect($redirect_edit . '&error=' . rawurlencode('Den valgte periode overlapper med en anden booking. Vælg venligst andre datoer.'));
+            wp_safe_redirect(add_query_arg('error', rawurlencode('Den valgte periode overlapper med en anden booking. Vælg venligst andre datoer.'), $redirect_edit));
             exit;
         }
 
@@ -547,7 +550,16 @@ class HKOF_Admin {
         }
         HKOF_DB::update($id, $update);
 
-        wp_safe_redirect(admin_url('admin.php?page=hkof-bookings&action=view&id=' . $id . '&done=1'));
+        // Ved succes sendes brugeren til VISNINGS-siden (ikke tilbage til edit-formularen).
+        // 'redirect_to_view' er et separat hidden-felt fra edit-formularen for front-end
+        // konteksten (peger på bookingens detalje-side); mangler det, falder vi tilbage til
+        // wp-admins egen hardkodede view-side som før.
+        $posted_view_redirect = isset($_POST['redirect_to_view']) ? esc_url_raw(wp_unslash($_POST['redirect_to_view'])) : '';
+        if ($posted_view_redirect) {
+            wp_safe_redirect(add_query_arg('hkof_done', '1', $posted_view_redirect));
+        } else {
+            wp_safe_redirect(admin_url('admin.php?page=hkof-bookings&action=view&id=' . $id . '&done=1'));
+        }
         exit;
     }
 
