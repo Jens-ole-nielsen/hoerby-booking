@@ -265,10 +265,17 @@ class HKOF_GDrive {
     }
 
     /** Validerer at et Drive-mappe-ID findes, er en mappe, og er tilgængeligt for den forbundne konto */
+    /** Returnerer mappens info (id/name/mimeType) ved succes, eller en WP_Error med den præcise årsag ved fejl. */
     public static function get_folder_info($folder_id) {
         $result = self::api_get('/files/' . rawurlencode($folder_id), ['fields' => 'id,name,mimeType']);
-        if (is_wp_error($result) || empty($result['id'])) return false;
-        if (($result['mimeType'] ?? '') !== 'application/vnd.google-apps.folder') return false;
+        if (is_wp_error($result)) return $result;
+        if (empty($result['id'])) {
+            $reason = $result['error']['message'] ?? 'Google Drive kunne ikke finde en mappe med dette ID.';
+            return new WP_Error('hkof_gdrive_folder_not_found', $reason);
+        }
+        if (($result['mimeType'] ?? '') !== 'application/vnd.google-apps.folder') {
+            return new WP_Error('hkof_gdrive_not_a_folder', 'Det angivne link/ID peger ikke på en mappe, men på en fil eller anden Drive-ressource.');
+        }
         return $result;
     }
 
@@ -409,8 +416,8 @@ class HKOF_GDrive {
         }
         $folder_id = self::extract_id_from_input($input);
         $info = self::get_folder_info($folder_id);
-        if (!$info) {
-            wp_safe_redirect(admin_url('admin.php?page=hkof-gdrive&error=' . rawurlencode('Mappen blev ikke fundet, eller den er ikke tilgængelig for den forbundne Google-konto.')));
+        if (is_wp_error($info)) {
+            wp_safe_redirect(admin_url('admin.php?page=hkof-gdrive&error=' . rawurlencode('Mappen kunne ikke bruges: ' . $info->get_error_message() . ' (Tjek at mappen er delt med/ejes af den Google-konto I har forbundet, og at I har indsat selve mappe-linket - ikke et link til en fil.)')));
             exit;
         }
 
