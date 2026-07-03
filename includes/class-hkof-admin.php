@@ -21,12 +21,21 @@ class HKOF_Admin {
         add_action('admin_enqueue_scripts', function ($hook) {
             if (strpos($hook, 'hkof-') !== false) wp_enqueue_media();
         });
+        // Vis en tydelig påmindelse på alle Hørby Booking-sider når mail-afsendelse er sat på pause
+        add_action('admin_notices', function () {
+            $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+            if (!$screen || strpos($screen->id, 'hkof-') === false) return;
+            if (HKOF_Settings::mail_paused()) {
+                echo '<div class="notice notice-warning"><p>🔕 <strong>Mail-afsendelse er sat på pause</strong> for Hørby Booking – gæster og foreningen får IKKE besked om ændringer lige nu. <a href="' . esc_url(admin_url('admin.php?page=hkof-mails')) . '">Slå det til igen her</a>.</p></div>';
+            }
+        });
     }
 
     public static function menu() {
         add_menu_page('Hørby Booking', 'Hørby Booking', 'edit_posts', 'hkof-bookings', [__CLASS__, 'render_list'], 'dashicons-calendar-alt', 26);
         add_submenu_page('hkof-bookings', 'Bookinger', 'Bookinger', 'edit_posts', 'hkof-bookings', [__CLASS__, 'render_list']);
         add_submenu_page('hkof-bookings', 'Indstillinger', 'Indstillinger', 'manage_options', 'hkof-settings', ['HKOF_Settings', 'render_settings_page']);
+        add_submenu_page('hkof-bookings', 'E-mails', '📧 E-mails', 'manage_options', 'hkof-mails', ['HKOF_Settings', 'render_mails_page']);
     }
 
     private static function label($status) {
@@ -46,6 +55,13 @@ class HKOF_Admin {
             return;
         }
 
+        // Hurtig mail-pause-kontakt (samme funktion som på E-mails-siden), så man
+        // kan slå mails fra lige her hvor man godkender/afviser bookinger
+        if (isset($_POST['hkof_mail_pause_nonce']) && wp_verify_nonce($_POST['hkof_mail_pause_nonce'], 'hkof_toggle_mail_pause')) {
+            HKOF_Settings::set_mail_paused(!HKOF_Settings::mail_paused());
+        }
+        $mail_paused = HKOF_Settings::mail_paused();
+
         $filter = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : 'all';
         $bookings = HKOF_DB::all($filter, 200);
         $counts = HKOF_DB::counts();
@@ -53,6 +69,20 @@ class HKOF_Admin {
         ?>
         <div class="wrap hkof-wrap">
             <h1>Hørby Booking – Bookinger</h1>
+
+            <div style="padding:10px 16px;border-radius:8px;margin-bottom:16px;border:1px solid <?php echo $mail_paused ? '#fca5a5' : '#e2e2e2'; ?>;background:<?php echo $mail_paused ? '#fee2e2' : '#f6f7f7'; ?>">
+                <form method="post" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0">
+                    <?php wp_nonce_field('hkof_toggle_mail_pause', 'hkof_mail_pause_nonce'); ?>
+                    <?php if ($mail_paused): ?>
+                        <strong>🔕 Mails er sat på pause</strong> — ingen mails sendes til gæster/foreningen.
+                        <button type="submit" class="button button-primary">🔔 Aktiver mails igen</button>
+                    <?php else: ?>
+                        <span>🔔 Mail-afsendelse er aktiv.</span>
+                        <button type="submit" class="button">🔕 Sæt mails på pause midlertidigt</button>
+                    <?php endif; ?>
+                    <a href="?page=hkof-mails" style="margin-left:auto">Rediger mail-indhold →</a>
+                </form>
+            </div>
 
             <ul class="subsubsub">
                 <li><a href="?page=hkof-bookings&status=all" class="<?php echo $filter==='all'?'current':''; ?>">Alle <span class="count">(<?php echo $total; ?>)</span></a> |</li>

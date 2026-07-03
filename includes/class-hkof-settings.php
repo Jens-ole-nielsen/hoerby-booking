@@ -62,6 +62,47 @@ class HKOF_Settings {
         update_option(self::OPTION_KEY, $merged);
     }
 
+    // ─── MAIL-PAUSE (midlertidig stop af al mailafsendelse) ─────────────
+    const MAIL_PAUSE_OPTION = 'hkof_mail_paused';
+
+    public static function mail_paused() {
+        return (bool) get_option(self::MAIL_PAUSE_OPTION, false);
+    }
+
+    public static function set_mail_paused($paused) {
+        update_option(self::MAIL_PAUSE_OPTION, (bool) $paused);
+    }
+
+    // ─── MAIL-SKABELONER (emne/indhold pr. mailtype, kan overskrives) ────
+    const MAIL_TEMPLATES_OPTION = 'hkof_mail_templates';
+
+    /** Returnerer den effektive skabelon (gemt overskrivning, ellers standard) for en mailtype */
+    public static function mail_template($key) {
+        $defs = HKOF_Mailer::template_defs();
+        if (!isset($defs[$key])) return null;
+        $default = $defs[$key];
+        $saved = get_option(self::MAIL_TEMPLATES_OPTION, []);
+        $override = isset($saved[$key]) ? $saved[$key] : [];
+        return [
+            'enabled' => array_key_exists('enabled', $override) ? (bool) $override['enabled'] : true,
+            'subject' => !empty($override['subject']) ? $override['subject'] : $default['default_subject'],
+            'body'    => !empty($override['body']) ? $override['body'] : $default['default_body'],
+        ];
+    }
+
+    public static function save_mail_template($key, $enabled, $subject, $body) {
+        $saved = get_option(self::MAIL_TEMPLATES_OPTION, []);
+        $saved[$key] = ['enabled' => (bool) $enabled, 'subject' => $subject, 'body' => $body];
+        update_option(self::MAIL_TEMPLATES_OPTION, $saved);
+    }
+
+    /** Fjerner en evt. gemt overskrivning, så mailtypen falder tilbage til standardteksten */
+    public static function reset_mail_template($key) {
+        $saved = get_option(self::MAIL_TEMPLATES_OPTION, []);
+        unset($saved[$key]);
+        update_option(self::MAIL_TEMPLATES_OPTION, $saved);
+    }
+
     /** Beregner priser for en given periodetype */
     public static function price_for_type($price_type) {
         $s = self::all();
@@ -215,6 +256,87 @@ class HKOF_Settings {
             });
         });
         </script>
+        <?php
+    }
+
+    /**
+     * "E-mails"-siden: øverst en hurtig pause-kontakt der midlertidigt stopper
+     * ALT mailafsendelse (så man kan godkende/afvise/redigere frit), og
+     * derunder en editor for emne + indhold for hver enkelt automatisk mail.
+     */
+    public static function render_mails_page() {
+        if (!current_user_can('manage_options')) return;
+
+        // Pause-kontakt: lille selvstændig formular øverst
+        if (isset($_POST['hkof_mail_pause_nonce']) && wp_verify_nonce($_POST['hkof_mail_pause_nonce'], 'hkof_toggle_mail_pause')) {
+            self::set_mail_paused(!self::mail_paused());
+        }
+
+        // Gem mail-skabeloner
+        if (isset($_POST['hkof_mails_nonce']) && wp_verify_nonce($_POST['hkof_mails_nonce'], 'hkof_save_mails')) {
+            foreach (HKOF_Mailer::template_defs() as $key => $def) {
+                if (!empty($_POST['reset'][$key])) {
+                    self::reset_mail_template($key);
+                    continue;
+                }
+                $enabled = !empty($_POST['templates'][$key]['enabled']);
+                $subject = sanitize_text_field(wp_unslash($_POST['templates'][$key]['subject'] ?? ''));
+                $body    = sanitize_textarea_field(wp_unslash($_POST['templates'][$key]['body'] ?? ''));
+                self::save_mail_template($key, $enabled, $subject, $body);
+            }
+            echo '<div class="notice notice-success"><p>E-mail-indstillinger gemt.</p></div>';
+        }
+
+        $paused = self::mail_paused();
+        ?>
+        <div class="wrap hkof-wrap">
+            <h1>Hørby Booking – E-mails</h1>
+
+            <div style="padding:14px 18px;border-radius:8px;margin-bottom:20px;border:1px solid <?php echo $paused ? '#fca5a5' : '#86efac'; ?>;background:<?php echo $paused ? '#fee2e2' : '#dcfce7'; ?>">
+                <form method="post" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0">
+                    <?php wp_nonce_field('hkof_toggle_mail_pause', 'hkof_mail_pause_nonce'); ?>
+                    <?php if ($paused): ?>
+                        <strong>🔕 Mail-afsendelse er sat på PAUSE.</strong>
+                        <span>Ingen mails sendes til gæster eller foreningen lige nu – I kan godkende, afvise og redigere bookinger i ro og mag.</span>
+                        <button type="submit" class="button button-primary">🔔 Aktiver mails igen</button>
+                    <?php else: ?>
+                        <strong>🔔 Mail-afsendelse er aktiv.</strong>
+                        <span>Alle mails sendes normalt til gæster og foreningen.</span>
+                        <button type="submit" class="button">🔕 Sæt mails på pause midlertidigt</button>
+                    <?php endif; ?>
+                </form>
+            </div>
+
+            <form method="post">
+                <?php wp_nonce_field('hkof_save_mails', 'hkof_mails_nonce'); ?>
+                <p class="description">Tilpas emne og indhold for hver automatisk mail nedenfor. Koderne i firkantede parenteser (fx <code>[fornavn]</code>) udskiftes automatisk med de rigtige oplysninger, når mailen sendes. Slå en mailtype fra permanent med "Send denne mail"-boksen, eller sæt hele systemet på pause med knappen ovenfor.<br>
+                Vil du ændre <strong>hvornår</strong> depositum-fristen eller den automatiske faktura udløses? Det styres under <a href="<?php echo esc_url(admin_url('admin.php?page=hkof-settings')); ?>">Indstillinger → Frister og regler</a> ("Depositum skal betales inden" og "Faktura sendes automatisk X dage før").</p>
+
+                <?php foreach (HKOF_Mailer::template_defs() as $key => $def):
+                    $tpl = self::mail_template($key);
+                ?>
+                    <div style="border:1px solid #dcdcde;border-radius:8px;padding:16px 18px;margin-bottom:16px;background:#fff">
+                        <h2 style="margin-top:0"><?php echo esc_html($def['label']); ?> <span style="font-weight:400;font-size:13px;color:#777">(sendes til: <?php echo esc_html($def['to']); ?>)</span></h2>
+                        <p>
+                            <label><input type="checkbox" name="templates[<?php echo esc_attr($key); ?>][enabled]" value="1" <?php checked($tpl['enabled']); ?>> Send denne mail</label>
+                        </p>
+                        <table class="form-table">
+                            <tr><th>Emne</th><td><input type="text" name="templates[<?php echo esc_attr($key); ?>][subject]" value="<?php echo esc_attr($tpl['subject']); ?>" class="large-text"></td></tr>
+                            <tr><th>Indhold</th><td><textarea name="templates[<?php echo esc_attr($key); ?>][body]" rows="8" class="large-text"><?php echo esc_textarea($tpl['body']); ?></textarea></td></tr>
+                        </table>
+                        <p class="description">
+                            <strong>Tilgængelige koder:</strong><br>
+                            <?php foreach ($def['tokens'] as $token => $desc): ?>
+                                <code><?php echo esc_html($token); ?></code> – <?php echo esc_html($desc); ?><br>
+                            <?php endforeach; ?>
+                        </p>
+                        <label><input type="checkbox" name="reset[<?php echo esc_attr($key); ?>]" value="1"> Nulstil til standardtekst ved gem</label>
+                    </div>
+                <?php endforeach; ?>
+
+                <?php submit_button('Gem alle mail-indstillinger'); ?>
+            </form>
+        </div>
         <?php
     }
 }
