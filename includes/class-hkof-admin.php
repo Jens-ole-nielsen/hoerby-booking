@@ -41,7 +41,11 @@ class HKOF_Admin {
         add_submenu_page('hkof-bookings', 'Google Drive', '📁 Google Drive', 'manage_options', 'hkof-gdrive', ['HKOF_GDrive', 'render_settings_page']);
     }
 
-    private static function label($status) {
+    public static function status_labels() {
+        return self::$status_labels;
+    }
+
+    public static function label($status) {
         $l = self::$status_labels[$status] ?? [$status, '#6b7280'];
         return sprintf('<span style="background:%s;color:#fff;padding:3px 9px;border-radius:12px;font-size:12px;font-weight:600">%s</span>', $l[1], esc_html($l[0]));
     }
@@ -72,6 +76,12 @@ class HKOF_Admin {
         ?>
         <div class="wrap hkof-wrap">
             <h1>Lokale Booking – Bookinger</h1>
+
+            <div style="padding:12px 16px;border-radius:8px;margin-bottom:16px;border:1px solid #c3d9ec;background:#f0f6fc">
+                <p style="margin:0 0 6px"><strong>📌 Shortcodes til jeres side</strong></p>
+                <p style="margin:0 0 4px">Booking-kalender/formular (det gæster ser): <code style="user-select:all;background:#fff;padding:2px 8px;border:1px solid #ddd;border-radius:4px">[hkof_booking]</code> – sæt ind på jeres almindelige booking-side.</p>
+                <p style="margin:0">Front-end admin-dashboard (godkend/administrér bookinger uden om wp-admin): <code style="user-select:all;background:#fff;padding:2px 8px;border:1px solid #ddd;border-radius:4px">[hkof_booking_admin]</code> – sæt ind på en skjult/adgangsbeskyttet side, kræver at man er logget ind med redigerings-rettighed.</p>
+            </div>
 
             <div style="padding:10px 16px;border-radius:8px;margin-bottom:16px;border:1px solid <?php echo $mail_paused ? '#fca5a5' : '#e2e2e2'; ?>;background:<?php echo $mail_paused ? '#fee2e2' : '#f6f7f7'; ?>">
                 <form method="post" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0">
@@ -144,8 +154,10 @@ class HKOF_Admin {
         return strlen($text) > $length ? wp_html_excerpt($text, $length, '…') : $text;
     }
 
-    private static function action_url($id, $action_name) {
-        return wp_nonce_url(admin_url('admin-post.php?action=hkof_booking_action&booking_id=' . $id . '&do=' . $action_name), 'hkof_booking_action_' . $id);
+    public static function action_url($id, $action_name, $redirect_to = null) {
+        $url = admin_url('admin-post.php?action=hkof_booking_action&booking_id=' . $id . '&do=' . $action_name);
+        if ($redirect_to) $url .= '&redirect_to=' . rawurlencode($redirect_to);
+        return wp_nonce_url($url, 'hkof_booking_action_' . $id);
     }
 
     private static function render_detail($id) {
@@ -455,7 +467,12 @@ class HKOF_Admin {
         $admin_notes = sanitize_textarea_field($_POST['admin_notes'] ?? '');
         HKOF_DB::update($id, ['admin_notes' => $admin_notes]);
 
-        wp_safe_redirect(admin_url('admin.php?page=hkof-bookings&action=view&id=' . $id . '&note_saved=1#hkof-note'));
+        $redirect_to = isset($_POST['redirect_to']) ? esc_url_raw(wp_unslash($_POST['redirect_to'])) : '';
+        if ($redirect_to) {
+            wp_safe_redirect(add_query_arg('hkof_note_saved', '1', $redirect_to) . '#hkof-note');
+        } else {
+            wp_safe_redirect(admin_url('admin.php?page=hkof-bookings&action=view&id=' . $id . '&note_saved=1#hkof-note'));
+        }
         exit;
     }
 
@@ -532,7 +549,12 @@ class HKOF_Admin {
                 break;
         }
 
-        wp_safe_redirect(admin_url('admin.php?page=hkof-bookings&action=view&id=' . $id . '&done=1'));
+        $redirect_to = isset($_GET['redirect_to']) ? esc_url_raw(wp_unslash($_GET['redirect_to'])) : '';
+        if ($redirect_to) {
+            wp_safe_redirect(add_query_arg('hkof_done', '1', $redirect_to));
+        } else {
+            wp_safe_redirect(admin_url('admin.php?page=hkof-bookings&action=view&id=' . $id . '&done=1'));
+        }
         exit;
     }
 }
