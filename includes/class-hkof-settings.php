@@ -103,6 +103,141 @@ class HKOF_Settings {
         update_option(self::MAIL_TEMPLATES_OPTION, $saved);
     }
 
+    // ─── KONTRAKT-PDF TEKSTER (redigerbare afsnit i lejekontrakten) ─────
+    const CONTRACT_TEXTS_OPTION = 'hkof_contract_texts';
+
+    /** Standardtekster for de redigerbare afsnit i kontrakt-PDF'en. Flerlinjede afsnit adskilles med tom linje; lister har ét punkt pr. linje. */
+    public static function contract_text_defs() {
+        return [
+            'intro_text' => [
+                'label' => 'Indledende sætning (lige efter foreningens navn/adresse)',
+                'default' => '[forening_navn] udlejer herved selskabslokaler med tilhørende køkken, scene, garderobe og toiletter til:',
+            ],
+            'terms_general' => [
+                'label' => 'Generelle vilkår (depositum, skader, driftsjournal) - adskil afsnit med en tom linje',
+                'default' =>
+                    "Depositum mistes ved aflysning der foretages senere end to måneder før lejeperiodens begyndelse.\n\n"
+                    . "Lejeren er forpligtet til efter regning at erstatte beskadigelser og ødelæggelser på bygninger og inventar m.v., der ikke hører under almindelig slitage. Endvidere er lejeren forpligtet til at aflevere det lejede i rengjort stand. Depositum med eventuelle fradrag for beskadigelser og rengøring afregnes senest 14 dage efter benyttelse. Såfremt der konstanteres skader eller mangler anmeldes dette straks til den tilsynsførende. Lejeren er forpligtet til at følge disse bestemmelser samt de anvisninger, den tilsynsførende måtte give.\n\n"
+                    . "Vedlagte \"Driftsjournal for forsamlingslokale\" skal efter Beredskabsstyrelsens bestemmelse udfyldes af lejer og afleveres til tilsynsførende sammen med nøglerne.",
+            ],
+            'keys_text' => [
+                'label' => 'Nøgler - adskil afsnit med en tom linje',
+                'default' =>
+                    "Afhentes og tilbageleveres til den tilsynsførende.\n\n"
+                    . "Det er Lejers ansvar selv at kontakte tilsynsførende senest 3 dage før leje for aftale om overdragelse af nøgler.",
+            ],
+            'selvbetjening_text' => [
+                'label' => 'Gør-det-selv, forbrugsvarer og inventar - adskil afsnit med en tom linje',
+                'default' =>
+                    "Forsamlingshuset udlejes på \"gør det selv\" basis. Lejeren sørger selv for alle praktiske forhold som f.eks. personale, mad og drikke.\n\n"
+                    . "Forbrugsvarer som papirservietter, toiletsæbe, opvaskemiddel og kaffefiltre er til fri disposition. Dog ikke viskestykker og karklude. Service, borde, stole og køkkeninventar er til rådighed for lejeren.\n\n"
+                    . "Inventar stilles i rengjort stand på rette plads efter afbenyttelsen.\n\n"
+                    . "Industriopvaskemaskine i køkkenet fungerer anderledes end den, vi har hjemme i køkkenet. Derfor skal den/de der skal betjene maskinen læse brugsanvisningen på væggen grundigt.",
+            ],
+            'opvask_text' => [
+                'label' => 'Opvask - adskil afsnit med en tom linje',
+                'default' =>
+                    "Bemærk! Skift vand inden man vasker glas.\n\n"
+                    . "Glas aftørres ALTID med et rent viskestykke før de sættes på plads.",
+            ],
+            'rengoring_intro' => [
+                'label' => 'Rengøring - indledende sætning',
+                'default' => 'Rengøring påhviler lejeren fuldt ud. Medmindre andet er aftalt.',
+            ],
+            'rengoring_liste' => [
+                'label' => 'Rengøring - tjekliste (ét punkt pr. linje, nummereres automatisk)',
+                'default' =>
+                    "ALT service, rengøres omhyggeligt, aftørres og sættes på plads inden aflevering.\n"
+                    . "Afvaskning af køkkenborde, komfurer, opvaskemaskine og køleskabe.\n"
+                    . "Samtlige stole og borde aftørres med fugtig klud og sættes på plads som modtaget.\n"
+                    . "Gulve overalt fejes/støvsuges og vaskes. Vindueskarme tørres af.\n"
+                    . "Toiletter rengøres.\n"
+                    . "Alt affald fjernes. Affaldscontainer og flaskecontainer findes i gården.",
+            ],
+            'rengoring_outro' => [
+                'label' => 'Rengøring - hvis huset ikke afleveres rengjort',
+                'default' => 'Såfremt huset ikke afleveres rengjort, vil huset blive gjort rent af et professionelt rengøringsteam, regningen vil påhvile lejer.',
+            ],
+            'ordensregler' => [
+                'label' => 'Ordensregler (ét punkt pr. linje)',
+                'default' =>
+                    "Lejeren er ansvarlig for ro og orden.\n"
+                    . "Ved udlejning til arrangementer med offentlig adgang påhviler det lejeren selv at indhente nødvendige tilladelser til udskænkning af spiritus.\n"
+                    . "Forsamlingshuset forventer, at inventar, maskiner m.v. betjenes med respekt.\n"
+                    . "Det er ikke tilladt at overnatte i forsamlingshuset eller nogen af de tilhørende lokaler eller arealer.\n"
+                    . "Affyring af enhver form for fyrværkeri er strengt forbudt, både inden- og udenfor huset. Overtrædelser af dette vil blive politianmeldt. Der er ingen undtagelser til denne regel da nabohuset er en stråtækt ejendom.",
+            ],
+        ];
+    }
+
+    /** Returnerer den effektive tekst (gemt overskrivning, ellers standard) for et kontrakt-afsnit, med [forening_navn] udskiftet */
+    public static function contract_text($key) {
+        $defs = self::contract_text_defs();
+        if (!isset($defs[$key])) return '';
+        $saved = get_option(self::CONTRACT_TEXTS_OPTION, []);
+        $text = (isset($saved[$key]) && $saved[$key] !== '') ? $saved[$key] : $defs[$key]['default'];
+        $s = self::all();
+        return strtr($text, ['[forening_navn]' => $s['association_name']]);
+    }
+
+    public static function save_contract_text($key, $text) {
+        $saved = get_option(self::CONTRACT_TEXTS_OPTION, []);
+        $saved[$key] = $text;
+        update_option(self::CONTRACT_TEXTS_OPTION, $saved);
+    }
+
+    /** Fjerner en evt. gemt overskrivning, så afsnittet falder tilbage til standardteksten */
+    public static function reset_contract_text($key) {
+        $saved = get_option(self::CONTRACT_TEXTS_OPTION, []);
+        unset($saved[$key]);
+        update_option(self::CONTRACT_TEXTS_OPTION, $saved);
+    }
+
+    public static function render_contract_texts_page() {
+        if (!current_user_can('manage_options')) return;
+
+        if (isset($_POST['hkof_contract_texts_nonce']) && wp_verify_nonce($_POST['hkof_contract_texts_nonce'], 'hkof_save_contract_texts')) {
+            foreach (self::contract_text_defs() as $key => $def) {
+                if (!empty($_POST['reset'][$key])) {
+                    self::reset_contract_text($key);
+                    continue;
+                }
+                $text = sanitize_textarea_field(wp_unslash($_POST['texts'][$key] ?? ''));
+                self::save_contract_text($key, $text);
+            }
+            echo '<div class="notice notice-success"><p>Kontrakttekster gemt. Gælder for kontrakter der genereres/gensendes herefter.</p></div>';
+        }
+
+        $saved = get_option(self::CONTRACT_TEXTS_OPTION, []);
+        ?>
+        <div class="wrap hkof-wrap">
+            <h1>Lokale Booking – Kontrakttekst</h1>
+            <p class="description">
+                Rediger de faste tekstafsnit i lejekontrakt-PDF'en uden at røre koden. Priser, datoer, navne og beløb genereres
+                stadig automatisk ud fra bookingens data og kan ikke redigeres her - kun de generelle vilkår/regler-afsnit.
+                Brug <code>[forening_navn]</code> i "Indledende sætning" for automatisk at indsætte foreningens navn.<br>
+                <strong>Bemærk:</strong> ændringer gælder kun kontrakter der genereres/gensendes EFTER du gemmer - allerede sendte
+                kontrakter ændres ikke.
+            </p>
+
+            <form method="post">
+                <?php wp_nonce_field('hkof_save_contract_texts', 'hkof_contract_texts_nonce'); ?>
+                <?php foreach (self::contract_text_defs() as $key => $def):
+                    $value = isset($saved[$key]) && $saved[$key] !== '' ? $saved[$key] : $def['default'];
+                    $rows = min(14, max(3, substr_count($def['default'], "\n") + 2));
+                ?>
+                    <div style="border:1px solid #dcdcde;border-radius:8px;padding:16px 18px;margin-bottom:16px;background:#fff">
+                        <h2 style="margin-top:0"><?php echo esc_html($def['label']); ?></h2>
+                        <textarea name="texts[<?php echo esc_attr($key); ?>]" rows="<?php echo (int) $rows; ?>" class="large-text"><?php echo esc_textarea($value); ?></textarea>
+                        <p><label><input type="checkbox" name="reset[<?php echo esc_attr($key); ?>]" value="1"> Nulstil til standardtekst ved gem</label></p>
+                    </div>
+                <?php endforeach; ?>
+                <?php submit_button('Gem kontrakttekster'); ?>
+            </form>
+        </div>
+        <?php
+    }
+
     /** Beregner priser for en given periodetype */
     public static function price_for_type($price_type) {
         $s = self::all();

@@ -15,7 +15,23 @@ class HKOF_Mailer {
 
     private static function headers() {
         $s = HKOF_Settings::all();
-        return ['Content-Type: text/plain; charset=UTF-8', 'From: ' . $s['sender_name'] . ' <' . get_option('admin_email') . '>'];
+        return ['Content-Type: text/html; charset=UTF-8', 'From: ' . $s['sender_name'] . ' <' . get_option('admin_email') . '>'];
+    }
+
+    /** Pakker den rene tekst-krop ind i et simpelt HTML-layout med foreningens logo øverst (hvis valgt under Indstillinger). */
+    private static function wrap_html($body) {
+        $s = HKOF_Settings::all();
+        $logo_url = $s['logo_id'] ? wp_get_attachment_url($s['logo_id']) : '';
+        $logo_html = $logo_url
+            ? '<img src="' . esc_url($logo_url) . '" alt="' . esc_attr($s['association_name']) . '" style="max-height:80px;margin-bottom:20px;display:block">'
+            : '<div style="font-size:18px;font-weight:bold;margin-bottom:16px;color:#222">' . esc_html($s['association_name']) . '</div>';
+        $body_html = nl2br(esc_html($body));
+        return '<!DOCTYPE html><html><body style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#222;max-width:600px;margin:0 auto;padding:24px 20px">'
+            . $logo_html
+            . '<div>' . $body_html . '</div>'
+            . '<hr style="margin:28px 0 12px;border:none;border-top:1px solid #ddd">'
+            . '<p style="color:#888;font-size:12px;margin:0">' . esc_html($s['association_name']) . '</p>'
+            . '</body></html>';
     }
 
     /**
@@ -231,7 +247,7 @@ class HKOF_Mailer {
     private static function dispatch($to, $subject, $body, $attachments = []) {
         if (!$to) return false;
         if (HKOF_Settings::mail_paused()) return false; // Mail-afsendelse midlertidigt sat på pause
-        return wp_mail($to, $subject, $body, self::headers(), $attachments);
+        return wp_mail($to, $subject, self::wrap_html($body), self::headers(), $attachments);
     }
 
     /** Sendes til foreningen når en ny booking-forespørgsel kommer ind */

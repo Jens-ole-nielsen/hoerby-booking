@@ -37,6 +37,7 @@ class HKOF_Admin {
         add_submenu_page('hkof-bookings', 'Bookinger', 'Bookinger', 'edit_posts', 'hkof-bookings', [__CLASS__, 'render_list']);
         add_submenu_page('hkof-bookings', 'Indstillinger', 'Indstillinger', 'manage_options', 'hkof-settings', ['HKOF_Settings', 'render_settings_page']);
         add_submenu_page('hkof-bookings', 'E-mails', '📧 E-mails', 'manage_options', 'hkof-mails', ['HKOF_Settings', 'render_mails_page']);
+        add_submenu_page('hkof-bookings', 'Kontrakttekst', '📄 Kontrakttekst', 'manage_options', 'hkof-contract-texts', ['HKOF_Settings', 'render_contract_texts_page']);
         add_submenu_page('hkof-bookings', 'Google Drive', '📁 Google Drive', 'manage_options', 'hkof-gdrive', ['HKOF_GDrive', 'render_settings_page']);
     }
 

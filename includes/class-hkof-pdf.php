@@ -70,7 +70,7 @@ class HKOF_PDF extends FPDF {
         $pdf->Ln(4);
 
         $pdf->SetFont('Arial', '', 11);
-        $pdf->MultiCell(0, 6, self::enc($s['association_name'] . ' udlejer herved selskabslokaler med tilhørende køkken, scene, garderobe og toiletter til:'));
+        $pdf->MultiCell(0, 6, self::enc(HKOF_Settings::contract_text('intro_text')));
         $pdf->Ln(2);
 
         $pdf->SetFont('Arial', 'B', 11);
@@ -130,11 +130,7 @@ class HKOF_PDF extends FPDF {
         $pdf->Ln(3);
 
         $pdf->SetFont('Arial', '', 10);
-        $terms = [
-            'Depositum mistes ved aflysning der foretages senere end to måneder før lejeperiodens begyndelse.',
-            'Lejeren er forpligtet til efter regning at erstatte beskadigelser og ødelæggelser på bygninger og inventar m.v., der ikke hører under almindelig slitage. Endvidere er lejeren forpligtet til at aflevere det lejede i rengjort stand. Depositum med eventuelle fradrag for beskadigelser og rengøring afregnes senest 14 dage efter benyttelse. Såfremt der konstanteres skader eller mangler anmeldes dette straks til den tilsynsførende. Lejeren er forpligtet til at følge disse bestemmelser samt de anvisninger, den tilsynsførende måtte give.',
-            'Vedlagte "Driftsjournal for forsamlingslokale" skal efter Beredskabsstyrelsens bestemmelse udfyldes af lejer og afleveres til tilsynsførende sammen med nøglerne.',
-        ];
+        $terms = array_values(array_filter(array_map('trim', explode("\n\n", HKOF_Settings::contract_text('terms_general')))));
         foreach ($terms as $t) { $pdf->MultiCell(0, 5.5, self::enc($t)); $pdf->Ln(1.5); }
 
         $pdf->Ln(2);
@@ -151,52 +147,40 @@ class HKOF_PDF extends FPDF {
         $pdf->SetFont('Arial', 'B', 10);
         $pdf->Cell(0, 6, self::enc('Nøgler:'), 0, 1);
         $pdf->SetFont('Arial', '', 10);
-        $pdf->MultiCell(0, 5.5, self::enc('Afhentes og tilbageleveres til den tilsynsførende.'));
-        $pdf->MultiCell(0, 5.5, self::enc('Det er Lejers ansvar selv at kontakte tilsynsførende senest 3 dage før leje for aftale om overdragelse af nøgler.'));
+        foreach (array_values(array_filter(array_map('trim', explode("\n\n", HKOF_Settings::contract_text('keys_text'))))) as $line) {
+            $pdf->MultiCell(0, 5.5, self::enc($line));
+        }
         $pdf->Ln(4);
 
-        $pdf->MultiCell(0, 5.5, self::enc('Forsamlingshuset udlejes på "gør det selv" basis. Lejeren sørger selv for alle praktiske forhold som f.eks. personale, mad og drikke.'));
-        $pdf->Ln(2);
-        $pdf->MultiCell(0, 5.5, self::enc('Forbrugsvarer som papirservietter, toiletsæbe, opvaskemiddel og kaffefiltre er til fri disposition. Dog ikke viskestykker og karklude. Service, borde, stole og køkkeninventar er til rådighed for lejeren.'));
-        $pdf->MultiCell(0, 5.5, self::enc('Inventar stilles i rengjort stand på rette plads efter afbenyttelsen.'));
-        $pdf->MultiCell(0, 5.5, self::enc('Industriopvaskemaskine i køkkenet fungerer anderledes end den, vi har hjemme i køkkenet. Derfor skal den/de der skal betjene maskinen læse brugsanvisningen på væggen grundigt.'));
+        foreach (array_values(array_filter(array_map('trim', explode("\n\n", HKOF_Settings::contract_text('selvbetjening_text'))))) as $line) {
+            $pdf->MultiCell(0, 5.5, self::enc($line));
+            $pdf->Ln(1);
+        }
 
         // ── Side 2: Opvask, rengøring, ordensregler ──
         $pdf->AddPage();
         $pdf->SetFont('Arial', 'B', 11);
         $pdf->Cell(0, 7, self::enc('Opvask:'), 0, 1);
         $pdf->SetFont('Arial', '', 10);
-        $pdf->MultiCell(0, 5.5, self::enc('Bemærk! Skift vand inden man vasker glas.'));
-        $pdf->MultiCell(0, 5.5, self::enc('Glas aftørres ALTID med et rent viskestykke før de sættes på plads.'));
+        foreach (array_values(array_filter(array_map('trim', explode("\n\n", HKOF_Settings::contract_text('opvask_text'))))) as $line) {
+            $pdf->MultiCell(0, 5.5, self::enc($line));
+        }
         $pdf->Ln(3);
 
         $pdf->SetFont('Arial', 'B', 11);
         $pdf->Cell(0, 7, self::enc('Rengøring:'), 0, 1);
         $pdf->SetFont('Arial', '', 10);
-        $pdf->MultiCell(0, 5.5, self::enc('Rengøring påhviler lejeren fuldt ud. Medmindre andet er aftalt.'));
-        $rengoring = [
-            '1. ALT service, rengøres omhyggeligt, aftørres og sættes på plads inden aflevering.',
-            '2. Afvaskning af køkkenborde, komfurer, opvaskemaskine og køleskabe.',
-            '3. Samtlige stole og borde aftørres med fugtig klud og sættes på plads som modtaget.',
-            '4. Gulve overalt fejes/støvsuges og vaskes. Vindueskarme tørres af.',
-            '5. Toiletter rengøres.',
-            '6. Alt affald fjernes. Affaldscontainer og flaskecontainer findes i gården.',
-        ];
-        foreach ($rengoring as $r) $pdf->MultiCell(0, 5.5, self::enc($r));
+        $pdf->MultiCell(0, 5.5, self::enc(HKOF_Settings::contract_text('rengoring_intro')));
+        $rengoring = array_values(array_filter(array_map('trim', explode("\n", HKOF_Settings::contract_text('rengoring_liste')))));
+        foreach ($rengoring as $i => $r) $pdf->MultiCell(0, 5.5, self::enc(($i + 1) . '. ' . $r));
         $pdf->Ln(2);
-        $pdf->MultiCell(0, 5.5, self::enc('Såfremt huset ikke afleveres rengjort, vil huset blive gjort rent af et professionelt rengøringsteam, regningen vil påhvile lejer.'));
+        $pdf->MultiCell(0, 5.5, self::enc(HKOF_Settings::contract_text('rengoring_outro')));
         $pdf->Ln(3);
 
         $pdf->SetFont('Arial', 'B', 11);
         $pdf->Cell(0, 7, self::enc('Ordensregler:'), 0, 1);
         $pdf->SetFont('Arial', '', 10);
-        $ordensregler = [
-            'Lejeren er ansvarlig for ro og orden.',
-            'Ved udlejning til arrangementer med offentlig adgang påhviler det lejeren selv at indhente nødvendige tilladelser til udskænkning af spiritus.',
-            'Forsamlingshuset forventer, at inventar, maskiner m.v. betjenes med respekt.',
-            'Det er ikke tilladt at overnatte i forsamlingshuset eller nogen af de tilhørende lokaler eller arealer.',
-            'Affyring af enhver form for fyrværkeri er strengt forbudt, både inden- og udenfor huset. Overtrædelser af dette vil blive politianmeldt. Der er ingen undtagelser til denne regel da nabohuset er en stråtækt ejendom.',
-        ];
+        $ordensregler = array_values(array_filter(array_map('trim', explode("\n", HKOF_Settings::contract_text('ordensregler')))));
         foreach ($ordensregler as $o) { $pdf->MultiCell(0, 5.5, self::enc($o)); $pdf->Ln(1.5); }
 
         $upload_dir = wp_upload_dir();
