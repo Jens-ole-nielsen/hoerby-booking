@@ -18,6 +18,7 @@ class HKOF_Admin {
         add_action('admin_menu', [__CLASS__, 'menu']);
         add_action('admin_post_hkof_booking_action', [__CLASS__, 'handle_action']);
         add_action('admin_post_hkof_booking_save', [__CLASS__, 'handle_save']);
+        add_action('admin_post_hkof_booking_save_note', [__CLASS__, 'handle_save_note']);
         add_action('admin_enqueue_scripts', function ($hook) {
             if (strpos($hook, 'hkof-') !== false) wp_enqueue_media();
         });
@@ -93,11 +94,11 @@ class HKOF_Admin {
 
             <table class="wp-list-table widefat fixed striped">
                 <thead><tr>
-                    <th>Lejeaftale nr.</th><th>Navn</th><th>Periode</th><th>Formål</th><th>Status</th><th>Oprettet</th><th></th>
+                    <th>Lejeaftale nr.</th><th>Navn</th><th>Periode</th><th>Formål</th><th>Status</th><th>Note</th><th>Oprettet</th><th></th>
                 </tr></thead>
                 <tbody>
                 <?php if (!$bookings): ?>
-                    <tr><td colspan="7">Ingen bookinger fundet.</td></tr>
+                    <tr><td colspan="8">Ingen bookinger fundet.</td></tr>
                 <?php else: foreach ($bookings as $b): ?>
                     <tr>
                         <td><?php echo esc_html($b->booking_ref ?: '—'); ?></td>
@@ -105,6 +106,15 @@ class HKOF_Admin {
                         <td><?php echo esc_html(date_i18n('d.m.Y', strtotime($b->check_in_date)) . ' - ' . date_i18n('d.m.Y', strtotime($b->check_out_date))); ?></td>
                         <td><?php echo esc_html($b->purpose); ?></td>
                         <td><?php echo self::label($b->status); ?></td>
+                        <td>
+                            <?php if (!empty($b->admin_notes)):
+                                $preview = self::truncate($b->admin_notes, 40);
+                            ?>
+                                <a href="?page=hkof-bookings&action=view&id=<?php echo $b->id; ?>#hkof-note" title="<?php echo esc_attr($b->admin_notes); ?>">📝 <?php echo esc_html($preview); ?></a>
+                            <?php else: ?>
+                                <a href="?page=hkof-bookings&action=view&id=<?php echo $b->id; ?>#hkof-note" style="color:#a7aaad">+ tilføj note</a>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->created_at))); ?></td>
                         <td>
                             <a class="button button-small" href="?page=hkof-bookings&action=view&id=<?php echo $b->id; ?>">Åbn</a>
@@ -116,6 +126,15 @@ class HKOF_Admin {
             </table>
         </div>
         <?php
+    }
+
+    /** Trunkerer tekst sikkert til UTF-8 (æøå) uden at kræve mbstring-extension på serveren */
+    private static function truncate($text, $length) {
+        if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+            return mb_strlen($text) > $length ? mb_substr($text, 0, $length) . '…' : $text;
+        }
+        // Fallback uden mbstring: brug WP's egen (mbstring-uafhængige) hjælpefunktion
+        return strlen($text) > $length ? wp_html_excerpt($text, $length, '…') : $text;
     }
 
     private static function action_url($id, $action_name) {
@@ -162,10 +181,20 @@ class HKOF_Admin {
                     <?php if ($b->deposit_paid_at): ?><p>💰 Depositum modtaget: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->deposit_paid_at))); ?></p><?php endif; ?>
                     <?php if ($b->invoice_sent_at): ?><p>🧾 Faktura sendt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->invoice_sent_at))); ?></p><?php endif; ?>
                     <?php if ($b->invoice_paid_at): ?><p>✅ Faktura betalt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->invoice_paid_at))); ?></p><?php endif; ?>
-                    <?php if (!empty($b->admin_notes)): ?>
-                        <h3>Interne noter</h3>
-                        <p style="white-space:pre-wrap;background:#f6f7f7;border:1px solid #dcdcde;padding:8px 10px;border-radius:4px"><?php echo esc_html($b->admin_notes); ?></p>
-                    <?php endif; ?>
+                    <div id="hkof-note" style="margin-top:18px">
+                        <h3 style="margin-bottom:4px">📝 Interne noter</h3>
+                        <p class="description" style="margin-top:0">Kun synligt for jer internt – deles af alle med adgang til systemet, vises aldrig for lejer.</p>
+                        <?php if (isset($_GET['note_saved'])): ?>
+                            <div class="notice notice-success inline" style="margin:0 0 8px"><p>Note gemt.</p></div>
+                        <?php endif; ?>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                            <input type="hidden" name="action" value="hkof_booking_save_note">
+                            <input type="hidden" name="booking_id" value="<?php echo (int) $b->id; ?>">
+                            <?php wp_nonce_field('hkof_booking_save_note_' . $b->id); ?>
+                            <textarea name="admin_notes" rows="4" class="large-text" placeholder="Skriv en note her – fx aftaler pr. telefon, ting I skal huske, status internt..."><?php echo esc_textarea($b->admin_notes); ?></textarea>
+                            <p><button type="submit" class="button">💾 Gem note</button></p>
+                        </form>
+                    </div>
                 </div>
 
                 <div style="flex:0 0 260px">
@@ -393,6 +422,21 @@ class HKOF_Admin {
         ]);
 
         wp_safe_redirect(admin_url('admin.php?page=hkof-bookings&action=view&id=' . $id . '&done=1'));
+        exit;
+    }
+
+    /** Hurtig gem af kun det interne notefelt - uden at røre resten af bookingens data */
+    public static function handle_save_note() {
+        $id = isset($_POST['booking_id']) ? (int) $_POST['booking_id'] : 0;
+        check_admin_referer('hkof_booking_save_note_' . $id);
+        if (!current_user_can('edit_posts') || !$id) wp_die('Ingen adgang');
+        $booking = HKOF_DB::get($id);
+        if (!$booking) wp_die('Booking ikke fundet');
+
+        $admin_notes = sanitize_textarea_field($_POST['admin_notes'] ?? '');
+        HKOF_DB::update($id, ['admin_notes' => $admin_notes]);
+
+        wp_safe_redirect(admin_url('admin.php?page=hkof-bookings&action=view&id=' . $id . '&note_saved=1#hkof-note'));
         exit;
     }
 
