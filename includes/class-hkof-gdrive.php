@@ -283,22 +283,24 @@ class HKOF_GDrive {
     /** Finder (eller opretter) årsmappen for kontrakter og returnerer dens ID, med simpel cache */
     private static function year_folder_id($year) {
         $root = get_option('hkof_gdrive_contracts_folder_id');
-        if (!$root) return false;
+        if (!$root) return new WP_Error('hkof_gdrive_no_folder', 'Der er ikke valgt en kontraktmappe i Google Drive-indstillingerne.');
         $cache = get_option('hkof_gdrive_year_folder_cache', []);
         if (!empty($cache[$year])) return $cache[$year];
 
         $folder_id = self::find_or_create_folder((string) $year, $root);
-        if (is_wp_error($folder_id) || !$folder_id) return false;
+        if (is_wp_error($folder_id)) return $folder_id;
+        if (!$folder_id) return new WP_Error('hkof_gdrive_folder_failed', 'Kunne ikke oprette årsmappen "' . $year . '" i Google Drive.');
 
         $cache[$year] = $folder_id;
         update_option('hkof_gdrive_year_folder_cache', $cache);
         return $folder_id;
     }
 
-    /** Uploader en fil (simpel multipart-upload) til en given mappe. Returnerer Drive fil-ID eller false. */
+    /** Uploader en fil (simpel multipart-upload) til en given mappe. Returnerer Drive fil-ID eller en WP_Error med årsagen. */
     private static function upload_file($local_path, $filename, $parent_id, $mime_type = 'application/octet-stream') {
         $token = self::access_token();
-        if (!$token || !file_exists($local_path)) return false;
+        if (!$token) return new WP_Error('hkof_gdrive_no_token', 'Kunne ikke hente/forny adgangstoken - forbindelsen til Google er muligvis afbrudt eller udløbet.');
+        if (!file_exists($local_path)) return new WP_Error('hkof_gdrive_no_file', 'PDF-filen blev ikke fundet lokalt på serveren.');
 
         $boundary = wp_generate_password(24, false);
         $metadata = wp_json_encode(['name' => $filename, 'parents' => [$parent_id]]);
@@ -320,28 +322,78 @@ class HKOF_GDrive {
             ],
             'body' => $body,
         ]);
-        if (is_wp_error($resp)) return false;
+        if (is_wp_error($resp)) return $resp;
         $data = json_decode(wp_remote_retrieve_body($resp), true);
-        return $data['id'] ?? false;
+        if (empty($data['id'])) {
+            $reason = $data['error']['message'] ?? 'Google Drive returnerede ingen fejlbesked, men uploaden mislykkedes.';
+            return new WP_Error('hkof_gdrive_upload_failed', $reason);
+        }
+        return $data['id'];
     }
 
     /**
      * Uploader en genereret kontrakt-PDF til årsmappen under den valgte
      * kontraktmappe (fx "Lejekontrakter/2026/Lejeaftale-HKOF-2026-0007-...pdf").
-     * Fejler helt stille (kun error_log) - må ALDRIG stoppe eller forsinke selve
-     * mail-afsendelsen til lejeren, hvis Google Drive skulle være utilgængeligt.
+     *
+     * VIGTIGT: Denne funktion må ALDRIG stoppe eller forsinke selve
+     * mail-afsendelsen til lejeren, hvis Google Drive skulle være utilgængeligt
+     * - hele flowet (godkendelse, kontrakt, faktura osv.) kører altid færdigt
+     * uanset om Drive-uploaden lykkes. I stedet gemmes resultatet direkte på
+     * bookingen:
+     *   - Lykkes uploaden: gdrive_contract_synced_at sættes, gdrive_contract_error ryddes.
+     *   - Fejler uploaden: gdrive_contract_error sættes med en læsbar årsag, så
+     *     admin kan se det i booking-oversigten/detaljesiden og bruge
+     *     "Prøv igen"-knappen. En daglig baggrundsjob (se HKOF_Cron) forsøger
+     *     desuden automatisk igen for alle bookinger med en fejlet upload.
+     *
+     * Returnerer true ved succes, false ved fejl, null hvis integrationen slet
+     * ikke er sat op/forbundet (bevidst fravalgt - regnes ikke som en fejl).
      */
     public static function upload_contract($booking, $pdf_path) {
+        if (!self::is_connected() || !get_option('hkof_gdrive_contracts_folder_id')) return null;
+
         try {
-            if (!self::is_connected() || !get_option('hkof_gdrive_contracts_folder_id')) return;
             $year = date('Y', strtotime($booking->check_in_date));
             $folder_id = self::year_folder_id($year);
-            if (!$folder_id) return;
+            if (is_wp_error($folder_id)) throw new Exception($folder_id->get_error_message());
+
             $filename = 'Lejeaftale-' . $booking->booking_ref . '-' . sanitize_file_name($booking->last_name) . '.pdf';
-            self::upload_file($pdf_path, $filename, $folder_id, 'application/pdf');
+            $file_id = self::upload_file($pdf_path, $filename, $folder_id, 'application/pdf');
+            if (is_wp_error($file_id)) throw new Exception($file_id->get_error_message());
+
+            HKOF_DB::update($booking->id, [
+                'gdrive_contract_synced_at' => current_time('mysql'),
+                'gdrive_contract_error'     => null,
+            ]);
+            return true;
         } catch (Throwable $e) {
-            error_log('[Lokale Booking] Google Drive-upload af kontrakt fejlede: ' . $e->getMessage());
+            error_log('[Lokale Booking] Google Drive-upload af kontrakt fejlede (booking #' . $booking->id . '): ' . $e->getMessage());
+            HKOF_DB::update($booking->id, ['gdrive_contract_error' => $e->getMessage()]);
+            return false;
         }
+    }
+
+    /**
+     * Forsøger igen at uploade kontrakten for alle bookinger hvor sidste
+     * forsøg fejlede. Kaldes automatisk dagligt (se HKOF_Cron::run_invoice_check)
+     * og kan også trigges manuelt via "Prøv igen"-knappen på en enkelt booking.
+     */
+    public static function retry_failed_contract_uploads() {
+        if (!self::is_connected() || !get_option('hkof_gdrive_contracts_folder_id')) return;
+        $bookings = HKOF_DB::get_bookings_with_gdrive_error();
+        foreach ($bookings as $booking) {
+            $pdf_path = self::locate_or_regenerate_contract($booking);
+            if ($pdf_path) self::upload_contract($booking, $pdf_path);
+        }
+    }
+
+    /** Finder den allerede genererede kontrakt-PDF på serveren, eller genskaber den hvis filen mangler */
+    public static function locate_or_regenerate_contract($booking) {
+        $upload_dir = wp_upload_dir();
+        $path = trailingslashit($upload_dir['basedir']) . 'hkof-contracts/lejeaftale-' . $booking->booking_ref . '.pdf';
+        if (file_exists($path)) return $path;
+        if (!class_exists('HKOF_PDF')) return false;
+        return HKOF_PDF::generate_contract($booking);
     }
 
     // ─── MAPPEVALG ───────────────────────────────────────────
@@ -402,10 +454,10 @@ class HKOF_GDrive {
         $file_id = self::upload_file($tmp_path, $filename, $backup_folder, 'application/json');
         @unlink($tmp_path);
 
-        if ($file_id) {
-            update_option('hkof_gdrive_last_backup_at', current_time('mysql'));
-        }
-        return (bool) $file_id;
+        if (is_wp_error($file_id) || !$file_id) return false;
+
+        update_option('hkof_gdrive_last_backup_at', current_time('mysql'));
+        return true;
     }
 
     public static function run_scheduled_backup() {

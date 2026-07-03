@@ -38,5 +38,10 @@ class HKOF_Cron {
                 'invoice_sent_at' => current_time('mysql'),
             ]);
         }
+
+        // Selvhelbredende: forsøg automatisk igen for enhver booking hvor
+        // kontrakten tidligere fejlede med at blive gemt i Google Drive
+        // (fx pga. midlertidigt netværksudfald eller udløbet token).
+        HKOF_GDrive::retry_failed_contract_uploads();
     }
 }

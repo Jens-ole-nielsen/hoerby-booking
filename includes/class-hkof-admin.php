@@ -102,7 +102,12 @@ class HKOF_Admin {
                     <tr><td colspan="8">Ingen bookinger fundet.</td></tr>
                 <?php else: foreach ($bookings as $b): ?>
                     <tr>
-                        <td><?php echo esc_html($b->booking_ref ?: '—'); ?></td>
+                        <td>
+                            <?php echo esc_html($b->booking_ref ?: '—'); ?>
+                            <?php if (!empty($b->gdrive_contract_error)): ?>
+                                <span title="Kontrakten kunne ikke gemmes i Google Drive: <?php echo esc_attr($b->gdrive_contract_error); ?>">⚠️</span>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo esc_html($b->first_name . ' ' . $b->last_name); ?></td>
                         <td><?php echo esc_html(date_i18n('d.m.Y', strtotime($b->check_in_date)) . ' - ' . date_i18n('d.m.Y', strtotime($b->check_out_date))); ?></td>
                         <td><?php echo esc_html($b->purpose); ?></td>
@@ -179,6 +184,18 @@ class HKOF_Admin {
 
                     <?php if ($b->deposit_invoice_sent_at): ?><p>📨 Opkrævning af depositum sendt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->deposit_invoice_sent_at))); ?></p><?php endif; ?>
                     <?php if ($b->contract_sent_at): ?><p>📄 Kontrakt sendt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->contract_sent_at))); ?></p><?php endif; ?>
+                    <?php if (!empty($b->gdrive_contract_error)): ?>
+                        <div style="background:#fcf0f1;border:1px solid #e5a2a8;border-radius:4px;padding:8px 10px;margin:4px 0 8px">
+                            <p style="margin:0 0 6px"><strong>⚠️ Kontrakten er IKKE gemt i Google Drive.</strong><br>
+                            <span style="color:#6b7280">Årsag: <?php echo esc_html($b->gdrive_contract_error); ?></span></p>
+                            <p style="margin:0;font-size:12px;color:#6b7280">Mailen til lejeren er sendt som normalt - kun Drive-kopien mangler. Systemet forsøger automatisk igen hver nat, eller prøv med det samme:</p>
+                            <p style="margin:6px 0 0">
+                                <a href="<?php echo self::action_url($id, 'retry_gdrive_upload'); ?>" class="button button-small">🔁 Prøv at gemme i Google Drive igen</a>
+                            </p>
+                        </div>
+                    <?php elseif (!empty($b->gdrive_contract_synced_at)): ?>
+                        <p>✅ Kontrakt gemt i Google Drive: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->gdrive_contract_synced_at))); ?></p>
+                    <?php endif; ?>
                     <?php if ($b->deposit_paid_at): ?><p>💰 Depositum modtaget: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->deposit_paid_at))); ?></p><?php endif; ?>
                     <?php if ($b->invoice_sent_at): ?><p>🧾 Faktura sendt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->invoice_sent_at))); ?></p><?php endif; ?>
                     <?php if ($b->invoice_paid_at): ?><p>✅ Faktura betalt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->invoice_paid_at))); ?></p><?php endif; ?>
@@ -506,6 +523,11 @@ class HKOF_Admin {
 
             case 'cancel':
                 HKOF_DB::update($id, ['status' => 'cancelled']);
+                break;
+
+            case 'retry_gdrive_upload':
+                $pdf_path = HKOF_GDrive::locate_or_regenerate_contract($booking);
+                if ($pdf_path) HKOF_GDrive::upload_contract($booking, $pdf_path);
                 break;
         }
 

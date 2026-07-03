@@ -45,6 +45,8 @@ class HKOF_DB {
             deposit_invoice_sent_at DATETIME DEFAULT NULL,
             rejected_reason TEXT DEFAULT NULL,
             admin_notes TEXT DEFAULT NULL,
+            gdrive_contract_synced_at DATETIME DEFAULT NULL,
+            gdrive_contract_error TEXT DEFAULT NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY  (id),
@@ -156,6 +158,22 @@ class HKOF_DB {
         ));
         $next = $count + 1;
         return sprintf('HKOF-%s-%04d', $year, $next);
+    }
+
+    /**
+     * Bookinger hvor kontrakten er sendt (har booking_ref), men hvor sidste
+     * forsøg på at gemme en kopi i Google Drive fejlede. Bruges af den
+     * daglige retry-cron til automatisk at forsøge igen.
+     */
+    public static function get_bookings_with_gdrive_error() {
+        global $wpdb;
+        $table = self::table();
+        return $wpdb->get_results(
+            "SELECT * FROM $table
+             WHERE gdrive_contract_error IS NOT NULL
+             AND gdrive_contract_error != ''
+             AND booking_ref IS NOT NULL AND booking_ref != ''"
+        );
     }
 
     // ─── EKSPORT / GENDANNELSE (bruges af Google Drive-backup) ──────────
