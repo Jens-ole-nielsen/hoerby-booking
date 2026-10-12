@@ -134,11 +134,13 @@ class HKOF_Mailer {
                     '[forening_navn]' => 'Foreningens navn',
                     '[afsender_navn]' => 'Afsendernavn i mails',
                     '[udlejning_navn]' => 'Kontaktperson for udlejning',
+                    '[faktura_dage_foer]' => 'Antal dage før arrangementet fakturaen/påmindelsen sendes (fra indstillingen)',
                 ],
                 'default_subject' => 'Lejeaftale nr. [lejeaftale_nr] – [forening_navn]',
                 'default_body' =>
                     "Hej [fornavn],\n\n"
                     . "Vi har registreret jeres depositum – tak for det. Hermed fremsendes den underskrevne lejeaftale vedr. leje af huset.\n\n"
+                    . "I vil modtage en påmindelse på betaling af lejen ca. 3 uger før arrangementet afholdes.\n\n"
                     . "I er velkommen til at kontakte undertegnede hvis i skulle have nogle spørgsmål.\n\n"
                     . "MVH [afsender_navn]\n"
                     . "[udlejning_navn]",
@@ -314,7 +316,9 @@ class HKOF_Mailer {
         // så der altid ligger en backup så snart kontrakten genereres.
         HKOF_GDrive::upload_contract($booking, $pdf_path);
 
-        $tokens = self::tokens($booking);
+        $tokens = self::tokens($booking, [
+            '[faktura_dage_foer]' => HKOF_Settings::get('invoice_days_before'),
+        ]);
         $r = self::render('contract', $tokens);
         if (!$r) return;
         self::dispatch($booking->email, $r['subject'], $r['body'], [$pdf_path]);

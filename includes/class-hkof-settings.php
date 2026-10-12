@@ -28,7 +28,7 @@ class HKOF_Settings {
             'default_days_moede'  => 1,
             'price_extra_day'     => 1000,
             'deposit_days_limit'  => 8,
-            'invoice_days_before' => 14,
+            'invoice_days_before' => 21,
             'udlejning_navn'      => 'Inge Petersen',
             'udlejning_tlf'       => '59 46 11 29',
             'tilsyn_navn'         => 'Lillian Olsen',
@@ -43,6 +43,33 @@ class HKOF_Settings {
     public static function set_defaults() {
         if (!get_option(self::OPTION_KEY)) {
             update_option(self::OPTION_KEY, self::defaults());
+        }
+    }
+
+    /** Engangs-migration ved opgradering til 1.12.0:
+     *  - Fakturaen (påmindelsen på lejen) sendes nu automatisk 21 dage / 3 uger før
+     *    arrangementet i stedet for 14 dage. Kunne ske at én eksisterende installation
+     *    stadig har 14 liggende gemt fra den gamle standard - så den flyttes til 21.
+     *  - Kontrakt-mailen har fået en sætning om påmindelsen. Hvis foreningen aldrig har
+     *    tilpasset skabelonen (den gemte kopi matcher den gamle standardtekst præcist),
+     *    opdateres den automatisk; ellers røres deres egen tekst ikke. */
+    public static function migrate_1120() {
+        $saved = get_option(self::OPTION_KEY, []);
+        if (is_array($saved) && isset($saved['invoice_days_before']) && (int) $saved['invoice_days_before'] === 14) {
+            $saved['invoice_days_before'] = 21;
+            update_option(self::OPTION_KEY, $saved);
+        }
+
+        $tpls = get_option(self::MAIL_TEMPLATES_OPTION, []);
+        if (!is_array($tpls) || !isset($tpls['contract']['body']) || $tpls['contract']['body'] === '') return;
+        $old_body = "Hej [fornavn],\n\n"
+            . "Vi har registreret jeres depositum – tak for det. Hermed fremsendes den underskrevne lejeaftale vedr. leje af huset.\n\n"
+            . "I er velkommen til at kontakte undertegnede hvis i skulle have nogle spørgsmål.\n\n"
+            . "MVH [afsender_navn]\n"
+            . "[udlejning_navn]";
+        if (trim((string) $tpls['contract']['body']) === trim($old_body)) {
+            $tpls['contract']['body'] = HKOF_Mailer::template_defs()['contract']['default_body'];
+            update_option(self::MAIL_TEMPLATES_OPTION, $tpls);
         }
     }
 
