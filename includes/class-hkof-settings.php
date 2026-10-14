@@ -370,7 +370,24 @@ class HKOF_Settings {
                             <?php if ($s['github_update_token']): ?>
                                 <label style="display:block;margin-top:6px"><input type="checkbox" name="github_update_token_clear" value="1"> Fjern gemt token</label>
                             <?php endif; ?>
-                            <p class="description">Valgfrit. Uden token virker opdateringer stadig (repoet er offentligt). Token bruges kun til at undgå GitHub's 60 kald/time-loft på delt hosting (403-fejl). Brug et <strong>classic</strong> Personal Access Token fra <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a> med scope <code>public_repo</code>. Et ugyldigt token giver 401 og <em>blokerer</em> opdateringstjek — fjern det så i så fald. Feltet gemmer aldrig et blankt token oveni et allerede gemt.</p>
+                            <p class="description">Valgfrit. Repoet er offentligt, så opdateringer skal virke uden token. Token er kun nødvendigt ved 403 (rate-limit). Brug et classic PAT der starter med <code>ghp_</code>. HTTP 401 skyldes næsten altid at webhotellet sender sit eget login med til GitHub — ikke at repoet er privat.</p>
+                            <p style="margin-top:10px">
+                                <a class="button" href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=hkof_test_github'), 'hkof_test_github')); ?>">Test GitHub-forbindelse</a>
+                            </p>
+                            <?php
+                            $github_test = get_transient('hkof_github_test_result');
+                            if ($github_test && is_array($github_test)):
+                            ?>
+                                <div style="margin-top:10px;padding:10px 12px;border-radius:6px;border:1px solid <?php echo !empty($github_test['ok']) ? '#86efac' : '#fca5a5'; ?>;background:<?php echo !empty($github_test['ok']) ? '#dcfce7' : '#fee2e2'; ?>">
+                                    <strong>HTTP <?php echo (int) $github_test['code']; ?></strong>
+                                    <?php if (!empty($github_test['message'])): ?>
+                                        — <?php echo esc_html($github_test['message']); ?>
+                                    <?php endif; ?>
+                                    <?php if (!empty($github_test['sha'])): ?>
+                                        <br><span class="description">Seneste commit på main: <?php echo esc_html(substr($github_test['sha'], 0, 7)); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 </table>
