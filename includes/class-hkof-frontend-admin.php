@@ -142,7 +142,7 @@ class HKOF_Frontend_Admin {
                             <a href="<?php echo esc_url($note_url); ?>" style="color:#9ca3af">+ tilføj note</a>
                         <?php endif; ?>
                     </td>
-                    <td><a class="hkof-btn secondary" href="<?php echo esc_url($view_url); ?>">Åbn →</a> <a class="hkof-inline-btn" href="<?php echo esc_url(add_query_arg('hkof_edit', '1', $view_url)); ?>" title="Rediger direkte">✏️</a></td>
+                    <td><a class="hkof-btn secondary" href="<?php echo esc_url($view_url); ?>">Åbn</a> <a class="hkof-inline-btn" href="<?php echo esc_url(add_query_arg('hkof_edit', '1', $view_url)); ?>">Rediger</a></td>
                 </tr>
             <?php endforeach; endif; ?>
             </tbody>
