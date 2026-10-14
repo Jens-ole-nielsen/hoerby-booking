@@ -318,9 +318,11 @@ class HKOF_Settings {
             ]);
             if (!empty($_POST['github_update_token'])) {
                 self::update(['github_update_token' => sanitize_text_field($_POST['github_update_token'])]);
+                delete_transient('hkof_github_token_invalid');
             }
             if (!empty($_POST['github_update_token_clear'])) {
                 self::update(['github_update_token' => '']);
+                delete_transient('hkof_github_token_invalid');
             }
             echo '<div class="notice notice-success"><p>Indstillinger gemt.</p></div>';
             $s = self::all();
@@ -368,7 +370,7 @@ class HKOF_Settings {
                             <?php if ($s['github_update_token']): ?>
                                 <label style="display:block;margin-top:6px"><input type="checkbox" name="github_update_token_clear" value="1"> Fjern gemt token</label>
                             <?php endif; ?>
-                            <p class="description">Bruges kun til at tjekke GitHub for opdateringer til dette plugin (undgår 403-fejl pga. GitHub's rate-limit for delt hosting-IP'er). Opret et "classic" Personal Access Token på <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a> med scope <code>public_repo</code> (repoet er offentligt, så det er nok). Feltet gemmer aldrig et blankt token oveni et allerede gemt.</p>
+                            <p class="description">Valgfrit. Uden token virker opdateringer stadig (repoet er offentligt). Token bruges kun til at undgå GitHub's 60 kald/time-loft på delt hosting (403-fejl). Brug et <strong>classic</strong> Personal Access Token fra <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a> med scope <code>public_repo</code>. Et ugyldigt token giver 401 og <em>blokerer</em> opdateringstjek — fjern det så i så fald. Feltet gemmer aldrig et blankt token oveni et allerede gemt.</p>
                         </td>
                     </tr>
                 </table>

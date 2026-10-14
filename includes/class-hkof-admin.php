@@ -31,6 +31,12 @@ class HKOF_Admin {
                 echo '<div class="notice notice-warning"><p>🔕 <strong>Mail-afsendelse er sat på pause</strong> for Lokale Booking – gæster og foreningen får IKKE besked om ændringer lige nu. <a href="' . esc_url(admin_url('admin.php?page=hkof-mails')) . '">Slå det til igen her</a>.</p></div>';
             }
         });
+        add_action('admin_notices', function () {
+            if (!current_user_can('manage_options') || !get_transient('hkof_github_token_invalid')) {
+                return;
+            }
+            echo '<div class="notice notice-warning is-dismissible"><p><strong>Lokale Booking:</strong> GitHub-tokenet til opdateringer var ugyldigt (HTTP 401) og er fjernet, så tjekket kan køre uden login. Du kan sætte et nyt classic PAT under <a href="' . esc_url(admin_url('admin.php?page=hkof-settings')) . '">Indstillinger</a> hvis I får 403 pga. rate-limit.</p></div>';
+        });
     }
 
     public static function menu() {

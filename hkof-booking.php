@@ -3,7 +3,7 @@
  * Plugin Name: Lokale Booking
  * Plugin URI: https://github.com/Jens-ole-nielsen/hoerby-booking
  * Description: Booking-system til udlejning af hele huset. Godkendelsesflow, automatisk kontrakt-PDF, manuel depositum-registrering, automatisk faktura 3 uger før arrangementet, samt Google Drive-integration til automatisk kontrakt-backup og planlagt databackup, redigerbare kontrakttekster og logo i alle mails.
- * Version: 1.12.2
+ * Version: 1.12.3
  * Author: Fair IT
  * Author URI: https://fair-it.dk
  * Text Domain: hkof-booking
@@ -12,7 +12,7 @@
 
 if (!defined('ABSPATH')) exit; // Ingen direkte adgang
 
-define('HKOF_BOOKING_VERSION', '1.12.2');
+define('HKOF_BOOKING_VERSION', '1.12.3');
 define('HKOF_BOOKING_FILE', __FILE__);
 define('HKOF_BOOKING_DIR', plugin_dir_path(__FILE__));
 define('HKOF_BOOKING_URL', plugin_dir_url(__FILE__));
@@ -42,14 +42,37 @@ $hkofUpdateChecker = PucFactory::buildUpdateChecker(
 $hkofUpdateChecker->setBranch('main');
 
 // GitHub rate-limiter uautentificerede API-kald til 60/time PR. IP – på delt
-// hosting kan denne kvote let være brugt op af andre sites på samme IP, hvilket
-// giver "HTTP status code: 403" når WP tjekker for opdateringer. Sættes derfor
-// et Personal Access Token (under Indstillinger i pluginnet) op, hæves kvoten
-// til 5000/time og fejlen forsvinder.
-$hkofGithubToken = HKOF_Settings::get('github_update_token');
-if (!empty($hkofGithubToken)) {
-    $hkofUpdateChecker->setAuthentication($hkofGithubToken);
-}
+// hosting kan denne kvote let være brugt op. Et PAT hæver kvoten til 5000/time.
+// Vi sender tokenet som Bearer (ikke PUC's Basic-auth med repo-brugernavn),
+// fordi Basic 401'er hvis tokenet tilhører en anden GitHub-bruger eller er
+// et fine-grained PAT. Ved 401 droppes tokenet, så det offentlige repo
+// stadig kan tjekkes uden login.
+$hkofGithubToken = trim((string) HKOF_Settings::get('github_update_token'));
+add_filter('puc_request_info_options-hkof-booking', function ($options) use (&$hkofGithubToken) {
+    if ($hkofGithubToken === '') {
+        return $options;
+    }
+    if (!isset($options['headers']) || !is_array($options['headers'])) {
+        $options['headers'] = [];
+    }
+    $options['headers']['Authorization'] = 'Bearer ' . $hkofGithubToken;
+    if (empty($options['timeout']) || (int) $options['timeout'] < 10) {
+        $options['timeout'] = 10;
+    }
+    return $options;
+});
+add_action('puc_api_error', function ($error, $response = null, $url = '', $slug = '') use (&$hkofGithubToken) {
+    if ($slug !== '' && $slug !== 'hkof-booking') {
+        return;
+    }
+    $code = $response ? (int) wp_remote_retrieve_response_code($response) : 0;
+    if ($code !== 401 || $hkofGithubToken === '') {
+        return;
+    }
+    $hkofGithubToken = '';
+    HKOF_Settings::update(['github_update_token' => '']);
+    set_transient('hkof_github_token_invalid', 1, WEEK_IN_SECONDS);
+}, 10, 4);
 
 // ─── AKTIVERING / DEAKTIVERING ─────────────────────────────
 register_activation_hook(__FILE__, function () {
