@@ -3,7 +3,7 @@
  * Plugin Name: Lokale Booking
  * Plugin URI: https://github.com/Jens-ole-nielsen/hoerby-booking
  * Description: Booking-system til udlejning af hele huset. Godkendelsesflow, automatisk kontrakt-PDF, manuel depositum-registrering, automatisk faktura 3 uger før arrangementet, samt Google Drive-integration til automatisk kontrakt-backup og planlagt databackup, redigerbare kontrakttekster og logo i alle mails.
- * Version: 1.12.0
+ * Version: 1.12.2
  * Author: Fair IT
  * Author URI: https://fair-it.dk
  * Text Domain: hkof-booking
@@ -12,7 +12,7 @@
 
 if (!defined('ABSPATH')) exit; // Ingen direkte adgang
 
-define('HKOF_BOOKING_VERSION', '1.12.0');
+define('HKOF_BOOKING_VERSION', '1.12.2');
 define('HKOF_BOOKING_FILE', __FILE__);
 define('HKOF_BOOKING_DIR', plugin_dir_path(__FILE__));
 define('HKOF_BOOKING_URL', plugin_dir_url(__FILE__));
@@ -73,9 +73,13 @@ add_action('plugins_loaded', function () {
     $installed = get_option('hkof_booking_db_version');
     if ($installed !== HKOF_BOOKING_VERSION) {
         HKOF_DB::create_table();
-        HKOF_Settings::migrate_1120(); // engangs-migration: faktura 14→21 dage før + ny tekst i kontrakt-mailen
+        // Kun ved opgradering fra før 1.12.0 — må ikke køre igen ved senere versioner
+        if (!$installed || version_compare((string) $installed, '1.12.0', '<')) {
+            HKOF_Settings::migrate_1120();
+        }
         update_option('hkof_booking_db_version', HKOF_BOOKING_VERSION);
     }
+    HKOF_PDF::ensure_contracts_dir();
 }, 5);
 
 // ─── OPSTART ────────────────────────────────────────────────

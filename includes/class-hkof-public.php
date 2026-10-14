@@ -20,7 +20,7 @@ class HKOF_Public {
                 <span><i class="hkof-dot hkof-free"></i> Ledig</span>
                 <span><i class="hkof-dot hkof-pending"></i> Afventer</span>
                 <span><i class="hkof-dot hkof-booked"></i> Reserveret</span>
-                <span>◐ Ankomst-/afgangsdag (halv dag, kl. 12.00)</span>
+                <span>◐ Ankomst-/afgangsdag kl. 12 — ny lejer kan ankomme samme dag, forrige tjekker ud</span>
             </div>
             <div id="hkof-calendar" class="hkof-calendar"
                  data-days-selskab="<?php echo esc_attr($s['default_days']); ?>"
@@ -156,8 +156,14 @@ class HKOF_Public {
         if (!is_email($email)) {
             wp_send_json_error(['message' => 'Ugyldig email-adresse.']);
         }
+        if (!self::is_valid_iso_date($check_in) || !self::is_valid_iso_date($check_out)) {
+            wp_send_json_error(['message' => 'Ugyldig dato.']);
+        }
         if (strtotime($check_out) < strtotime($check_in)) {
             wp_send_json_error(['message' => 'Afgangsdato kan ikke være før ankomstdato.']);
+        }
+        if ($check_in < current_time('Y-m-d')) {
+            wp_send_json_error(['message' => 'Ankomstdato kan ikke ligge i fortiden.']);
         }
 
         // Sikrer at den valgte periode faktisk matcher standardperioden + ekstra dage for den valgte type
@@ -168,17 +174,13 @@ class HKOF_Public {
             wp_send_json_error(['message' => 'Den valgte periode matcher ikke antal dage for den valgte type. Prøv venligst igen.']);
         }
 
-        if (HKOF_DB::has_overlap($check_in, $check_out)) {
-            wp_send_json_error(['message' => 'Den valgte periode er desværre ikke længere ledig. Vælg venligst en anden dato.']);
-        }
-
         $s = HKOF_Settings::all();
         $rental = HKOF_Settings::price_for_type($price_type);
         $environment_fee = (float) $s['price_miljoeafgift'];
         $deposit = (float) $s['price_depositum'];
         $extra_days_fee = $extra_days * (float) $s['price_extra_day'];
 
-        $id = HKOF_DB::insert([
+        $id = HKOF_DB::insert_if_available([
             'first_name'      => $first_name,
             'last_name'       => $last_name,
             'address'         => $address,
@@ -196,11 +198,22 @@ class HKOF_Public {
             'extra_days_fee'  => $extra_days_fee,
             'status'          => 'pending',
         ]);
+        if (!$id) {
+            wp_send_json_error(['message' => 'Den valgte periode er desværre ikke længere ledig. Vælg venligst en anden dato.']);
+        }
 
         $booking = HKOF_DB::get($id);
         HKOF_Mailer::send_new_booking_notification($booking);
         HKOF_Mailer::send_booking_received($booking);
 
         wp_send_json_success(['message' => 'Tak for din forespørgsel! Den afventer nu godkendelse, og du modtager en bekræftelse på mail.']);
+    }
+
+    private static function is_valid_iso_date($value) {
+        if (!is_string($value) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return false;
+        }
+        $dt = date_create_from_format('Y-m-d', $value);
+        return $dt && $dt->format('Y-m-d') === $value;
     }
 }

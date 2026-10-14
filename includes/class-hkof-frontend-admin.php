@@ -29,7 +29,7 @@ class HKOF_Frontend_Admin {
     /** Nuværende side-URL renset for vores egne midlertidige query-parametre (visning/kvitteringer) */
     private static function clean_url($extra_remove = []) {
         $url = self::current_full_url();
-        $strip = array_merge(['hkof_view', 'hkof_edit', 'hkof_done', 'hkof_note_saved', 'error'], $extra_remove);
+        $strip = array_merge(['hkof_view', 'hkof_edit', 'hkof_done', 'hkof_note_saved', 'hkof_mail_error', 'error'], $extra_remove);
         return remove_query_arg($strip, $url);
     }
 
@@ -155,6 +155,7 @@ class HKOF_Frontend_Admin {
         <h2><?php echo esc_html($b->first_name . ' ' . $b->last_name); ?> <span class="hkof-badge" style="background:<?php echo esc_attr($l[1]); ?>"><?php echo esc_html($l[0]); ?></span></h2>
 
         <?php if (isset($_GET['hkof_done'])): ?><div class="hkof-notice">✅ Handlingen blev udført.</div><?php endif; ?>
+        <?php if (!empty($_GET['hkof_mail_error'])): ?><div class="hkof-error-box"><?php echo esc_html(sanitize_text_field(wp_unslash($_GET['hkof_mail_error']))); ?></div><?php endif; ?>
         <?php if (isset($_GET['hkof_note_saved'])): ?><div class="hkof-notice">📝 Noten er gemt.</div><?php endif; ?>
 
         <div class="hkof-box">
@@ -175,6 +176,7 @@ class HKOF_Frontend_Admin {
                     <span><span class="hkof-dot hkof-pending"></span>Afventer</span>
                     <span><span class="hkof-dot hkof-booked"></span>Reserveret</span>
                     <span>🔵 Denne booking</span>
+                    <span>◐ Kl. 12-skift: ny ankomst må ligge på forriges afgangsdag</span>
                 </div>
                 <div class="hkof-cal-nav">
                     <button type="button" id="hkof-fe-cal-prev">&larr;</button>
@@ -201,6 +203,16 @@ class HKOF_Frontend_Admin {
                 }
             })();
             </script>
+
+            <?php
+            $contract_path = $b->booking_ref ? HKOF_PDF::find_existing_pdf('contract', $b) : '';
+            $invoice_path  = $b->booking_ref ? HKOF_PDF::find_existing_pdf('invoice', $b) : '';
+            if ($contract_path): ?>
+                <p><a href="<?php echo esc_url(HKOF_PDF::download_url($id, 'contract')); ?>" target="_blank">📄 Se kontrakt-PDF</a></p>
+            <?php endif; ?>
+            <?php if ($invoice_path): ?>
+                <p><a href="<?php echo esc_url(HKOF_PDF::download_url($id, 'invoice')); ?>" target="_blank">🧾 Se faktura-PDF</a></p>
+            <?php endif; ?>
 
             <?php if (!empty($b->gdrive_contract_error)): ?>
                 <p style="color:#b91c1c;font-size:.88em">⚠️ Kontrakten kunne ikke gemmes i Google Drive (<?php echo esc_html($b->gdrive_contract_error); ?>). Mailen til lejeren er sendt som normalt.</p>
@@ -331,6 +343,7 @@ class HKOF_Frontend_Admin {
                                 <span><span class="hkof-dot hkof-pending"></span>Afventer</span>
                                 <span><span class="hkof-dot hkof-booked"></span>Reserveret</span>
                                 <span>🔵 Denne booking</span>
+                    <span>◐ Kl. 12-skift: ny ankomst må ligge på forriges afgangsdag</span>
                             </div>
                             <div class="hkof-cal-nav">
                                 <button type="button" id="hkof-fe-edit-cal-prev">&larr;</button>

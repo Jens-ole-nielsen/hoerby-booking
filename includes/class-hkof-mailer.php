@@ -287,8 +287,8 @@ class HKOF_Mailer {
             '[bank_konto]'            => $s['bank_konto'],
         ]);
         $r = self::render('deposit_invoice', $tokens);
-        if (!$r) return;
-        self::dispatch($booking->email, $r['subject'], $r['body']);
+        if (!$r) return false;
+        return (bool) self::dispatch($booking->email, $r['subject'], $r['body']);
     }
 
     /** Sendes til foreningen når en opkrævning (depositum eller leje) er sendt til lejer */
@@ -333,8 +333,8 @@ class HKOF_Mailer {
             '[faktura_frist_dage]' => $s['invoice_days_before'],
         ]);
         $r = self::render('invoice', $tokens);
-        if (!$r) return;
-        self::dispatch($booking->email, $r['subject'], $r['body'], [$pdf_path]);
+        if (!$r) return false;
+        return (bool) self::dispatch($booking->email, $r['subject'], $r['body'], [$pdf_path]);
     }
 
     /** Sendes hvis en booking afvises */

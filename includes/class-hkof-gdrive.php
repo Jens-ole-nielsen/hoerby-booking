@@ -396,10 +396,9 @@ class HKOF_GDrive {
 
     /** Finder den allerede genererede kontrakt-PDF på serveren, eller genskaber den hvis filen mangler */
     public static function locate_or_regenerate_contract($booking) {
-        $upload_dir = wp_upload_dir();
-        $path = trailingslashit($upload_dir['basedir']) . 'hkof-contracts/lejeaftale-' . $booking->booking_ref . '.pdf';
-        if (file_exists($path)) return $path;
         if (!class_exists('HKOF_PDF')) return false;
+        $path = HKOF_PDF::find_existing_pdf('contract', $booking);
+        if ($path) return $path;
         return HKOF_PDF::generate_contract($booking);
     }
 

@@ -19,6 +19,7 @@ class HKOF_Admin {
         add_action('admin_post_hkof_booking_action', [__CLASS__, 'handle_action']);
         add_action('admin_post_hkof_booking_save', [__CLASS__, 'handle_save']);
         add_action('admin_post_hkof_booking_save_note', [__CLASS__, 'handle_save_note']);
+        add_action('admin_post_hkof_download_pdf', ['HKOF_PDF', 'handle_download']);
         add_action('admin_enqueue_scripts', function ($hook) {
             if (strpos($hook, 'hkof-') !== false) wp_enqueue_media();
         });
@@ -189,6 +190,9 @@ class HKOF_Admin {
             <?php if (isset($_GET['done'])): ?>
                 <div class="notice notice-success"><p>Handling udført.</p></div>
             <?php endif; ?>
+            <?php if (!empty($_GET['hkof_mail_error'])): ?>
+                <div class="notice notice-error"><p><?php echo esc_html(sanitize_text_field(wp_unslash($_GET['hkof_mail_error']))); ?></p></div>
+            <?php endif; ?>
 
             <div style="display:flex;gap:24px;flex-wrap:wrap">
                 <div style="flex:1;min-width:320px">
@@ -285,17 +289,14 @@ class HKOF_Admin {
                     <?php endif; ?>
 
                     <?php
-                    $upload_dir = wp_upload_dir();
-                    $contract_path = trailingslashit($upload_dir['basedir']) . 'hkof-contracts/lejeaftale-' . $b->booking_ref . '.pdf';
-                    $contract_url  = trailingslashit($upload_dir['baseurl']) . 'hkof-contracts/lejeaftale-' . $b->booking_ref . '.pdf';
-                    $invoice_path  = trailingslashit($upload_dir['basedir']) . 'hkof-contracts/faktura-' . $b->booking_ref . '.pdf';
-                    $invoice_url   = trailingslashit($upload_dir['baseurl']) . 'hkof-contracts/faktura-' . $b->booking_ref . '.pdf';
+                    $contract_path = $b->booking_ref ? HKOF_PDF::find_existing_pdf('contract', $b) : '';
+                    $invoice_path  = $b->booking_ref ? HKOF_PDF::find_existing_pdf('invoice', $b) : '';
                     ?>
-                    <?php if ($b->booking_ref && file_exists($contract_path)): ?>
-                        <p style="margin-top:14px"><a href="<?php echo esc_url($contract_url); ?>" target="_blank">📄 Se kontrakt-PDF</a></p>
+                    <?php if ($contract_path): ?>
+                        <p style="margin-top:14px"><a href="<?php echo esc_url(HKOF_PDF::download_url($id, 'contract')); ?>" target="_blank">📄 Se kontrakt-PDF</a></p>
                     <?php endif; ?>
-                    <?php if ($b->booking_ref && file_exists($invoice_path)): ?>
-                        <p><a href="<?php echo esc_url($invoice_url); ?>" target="_blank">🧾 Se faktura-PDF</a></p>
+                    <?php if ($invoice_path): ?>
+                        <p><a href="<?php echo esc_url(HKOF_PDF::download_url($id, 'invoice')); ?>" target="_blank">🧾 Se faktura-PDF</a></p>
                     <?php endif; ?>
                 </div>
             </div>
@@ -358,6 +359,7 @@ class HKOF_Admin {
                                     <span><span class="hkof-dot hkof-pending"></span>Afventer</span>
                                     <span><span class="hkof-dot hkof-booked"></span>Reserveret</span>
                                     <span>🔵 Denne booking</span>
+                                    <span>◐ Kl. 12-skift: ny ankomst må ligge på forriges afgangsdag</span>
                                 </div>
                                 <div class="hkof-cal-nav">
                                     <button type="button" id="hkof-edit-cal-prev">&larr;</button>
@@ -546,9 +548,13 @@ class HKOF_Admin {
         // altid har et lejeaftalenummer, så efterfølgende manuelle mails/PDF'er/Drive-filnavne
         // ikke ender med en tom reference (samme nummerering som "Godkend"-handlingen bruger).
         if ($status !== 'pending' && empty($booking->booking_ref)) {
-            $update['booking_ref'] = HKOF_DB::next_booking_ref();
+            if (HKOF_DB::update_assigning_ref($id, $update) === false) {
+                wp_safe_redirect(add_query_arg('error', rawurlencode('Kunne ikke tildele lejeaftalenummer. Prøv venligst igen.'), $redirect_edit));
+                exit;
+            }
+        } else {
+            HKOF_DB::update($id, $update);
         }
-        HKOF_DB::update($id, $update);
 
         // Ved succes sendes brugeren til VISNINGS-siden (ikke tilbage til edit-formularen).
         // 'redirect_to_view' er et separat hidden-felt fra edit-formularen for front-end
@@ -592,14 +598,22 @@ class HKOF_Admin {
         $booking = HKOF_DB::get($id);
         if (!$booking) wp_die('Booking ikke fundet');
 
+        $mail_error = '';
+
         switch ($do) {
             case 'approve':
-                $ref = HKOF_DB::next_booking_ref();
-                HKOF_DB::update($id, ['status' => 'approved', 'booking_ref' => $ref]);
+                if (HKOF_DB::update_assigning_ref($id, ['status' => 'approved']) === false) {
+                    $mail_error = 'Kunne ikke tildele lejeaftalenummer. Prøv venligst igen.';
+                    break;
+                }
                 $booking = HKOF_DB::get($id);
-                HKOF_Mailer::send_deposit_invoice($booking);
-                HKOF_Mailer::notify_association_invoice_sent($booking, 'depositum');
-                HKOF_DB::update($id, ['deposit_invoice_sent_at' => current_time('mysql')]);
+                $sent = HKOF_Mailer::send_deposit_invoice($booking);
+                if ($sent) {
+                    HKOF_Mailer::notify_association_invoice_sent($booking, 'depositum');
+                    HKOF_DB::update($id, ['deposit_invoice_sent_at' => current_time('mysql')]);
+                } else {
+                    $mail_error = self::mail_not_sent_message('Opkrævning af depositum blev ikke sendt.');
+                }
                 break;
 
             case 'resend_deposit_invoice':
@@ -633,9 +647,13 @@ class HKOF_Admin {
 
             case 'send_invoice_now':
                 $pdf_path = HKOF_PDF::generate_invoice($booking);
-                HKOF_Mailer::send_invoice($booking, $pdf_path);
-                HKOF_Mailer::notify_association_invoice_sent($booking, 'leje');
-                HKOF_DB::update($id, ['status' => 'invoice_sent', 'invoice_sent_at' => current_time('mysql')]);
+                $sent = HKOF_Mailer::send_invoice($booking, $pdf_path);
+                if ($sent) {
+                    HKOF_Mailer::notify_association_invoice_sent($booking, 'leje');
+                    HKOF_DB::update($id, ['status' => 'invoice_sent', 'invoice_sent_at' => current_time('mysql')]);
+                } else {
+                    $mail_error = self::mail_not_sent_message('Fakturaen blev ikke sendt, og status er uændret.');
+                }
                 break;
 
             case 'mark_invoice_paid':
@@ -665,11 +683,26 @@ class HKOF_Admin {
         }
 
         $redirect_to = isset($_GET['redirect_to']) ? esc_url_raw(wp_unslash($_GET['redirect_to'])) : '';
+        if ($mail_error) {
+            if ($redirect_to) {
+                wp_safe_redirect(add_query_arg('hkof_mail_error', $mail_error, $redirect_to));
+            } else {
+                wp_safe_redirect(admin_url('admin.php?page=hkof-bookings&action=view&id=' . $id . '&hkof_mail_error=' . rawurlencode($mail_error)));
+            }
+            exit;
+        }
         if ($redirect_to) {
             wp_safe_redirect(add_query_arg('hkof_done', '1', $redirect_to));
         } else {
             wp_safe_redirect(admin_url('admin.php?page=hkof-bookings&action=view&id=' . $id . '&done=1'));
         }
         exit;
+    }
+
+    private static function mail_not_sent_message($prefix) {
+        if (HKOF_Settings::mail_paused()) {
+            return $prefix . ' Mail-afsendelse er sat på pause.';
+        }
+        return $prefix . ' Tjek at mailtypen er slået til, og at WordPress kan sende e-mail.';
     }
 }

@@ -190,12 +190,9 @@ class HKOF_PDF extends FPDF {
         $ordensregler = array_values(array_filter(array_map('trim', explode("\n", HKOF_Settings::contract_text('ordensregler')))));
         foreach ($ordensregler as $o) { $pdf->MultiCell(0, 5.5, self::enc($o)); $pdf->Ln(1.5); }
 
-        $upload_dir = wp_upload_dir();
-        $dir = trailingslashit($upload_dir['basedir']) . 'hkof-contracts/';
-        if (!file_exists($dir)) wp_mkdir_p($dir);
-        $filename = 'lejeaftale-' . $booking->booking_ref . '.pdf';
-        $filepath = $dir . $filename;
+        $filepath = self::target_pdf_path('contract', $booking);
         $pdf->Output('F', $filepath);
+        self::remove_legacy_pdf('contract', $booking, $filepath);
         return $filepath;
     }
 
@@ -274,12 +271,113 @@ class HKOF_PDF extends FPDF {
         $pdf->SetFont('Arial', 'B', 10);
         $pdf->MultiCell(0, 6, self::enc('VIGTIGT !! - Husk at påføre lejeaftale nr. ' . $booking->booking_ref . ' på din indbetaling.'));
 
+        $filepath = self::target_pdf_path('invoice', $booking);
+        $pdf->Output('F', $filepath);
+        self::remove_legacy_pdf('invoice', $booking, $filepath);
+        return $filepath;
+    }
+
+    /**
+     * Sikrer at PDF-mappen findes og ikke kan listes/hentes direkte via HTTP
+     * (Apache .htaccess). Nginx ignorerer .htaccess, derfor har filerne også
+     * et ugætteligt navn, og visning sker kun via det login-beskyttede download-endpoint.
+     */
+    public static function ensure_contracts_dir() {
         $upload_dir = wp_upload_dir();
         $dir = trailingslashit($upload_dir['basedir']) . 'hkof-contracts/';
-        if (!file_exists($dir)) wp_mkdir_p($dir);
-        $filename = 'faktura-' . $booking->booking_ref . '.pdf';
-        $filepath = $dir . $filename;
-        $pdf->Output('F', $filepath);
-        return $filepath;
+        if (!file_exists($dir)) {
+            wp_mkdir_p($dir);
+        }
+        $htaccess = $dir . '.htaccess';
+        if (!file_exists($htaccess)) {
+            file_put_contents($htaccess,
+                "<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n"
+                . "<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n"
+                . "Options -Indexes\n"
+            );
+        }
+        $index = $dir . 'index.php';
+        if (!file_exists($index)) {
+            file_put_contents($index, "<?php\n// Silence is golden.\n");
+        }
+        return $dir;
+    }
+
+    public static function download_url($booking_id, $type) {
+        $type = $type === 'invoice' ? 'invoice' : 'contract';
+        $id = (int) $booking_id;
+        return wp_nonce_url(
+            admin_url('admin-post.php?action=hkof_download_pdf&booking_id=' . $id . '&type=' . $type),
+            'hkof_download_pdf_' . $id . '_' . $type
+        );
+    }
+
+    public static function handle_download() {
+        $id = isset($_GET['booking_id']) ? (int) $_GET['booking_id'] : 0;
+        $type = (isset($_GET['type']) && $_GET['type'] === 'invoice') ? 'invoice' : 'contract';
+        check_admin_referer('hkof_download_pdf_' . $id . '_' . $type);
+        if (!current_user_can('edit_posts') || !$id) {
+            wp_die('Ingen adgang');
+        }
+        $booking = HKOF_DB::get($id);
+        if (!$booking || empty($booking->booking_ref)) {
+            wp_die('PDF ikke fundet');
+        }
+        $path = self::find_existing_pdf($type, $booking);
+        if (!$path) {
+            wp_die('PDF ikke fundet');
+        }
+        $download_name = ($type === 'invoice' ? 'faktura-' : 'lejeaftale-') . preg_replace('/[^A-Za-z0-9._-]/', '', $booking->booking_ref) . '.pdf';
+        nocache_headers();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="' . $download_name . '"');
+        header('Content-Length: ' . filesize($path));
+        header('X-Content-Type-Options: nosniff');
+        readfile($path);
+        exit;
+    }
+
+    /** Sti til eksisterende PDF, eller tom streng. Flytter ældre forudsigelige filnavne til hashed navn. */
+    public static function find_existing_pdf($type, $booking) {
+        $target = self::target_pdf_path($type, $booking);
+        if ($target && file_exists($target)) {
+            return $target;
+        }
+        $legacy = self::legacy_pdf_path($type, $booking);
+        if ($legacy && file_exists($legacy)) {
+            if (@rename($legacy, $target)) {
+                return $target;
+            }
+            return $legacy;
+        }
+        return '';
+    }
+
+    public static function target_pdf_path($type, $booking) {
+        if (empty($booking->booking_ref)) {
+            return '';
+        }
+        $dir = self::ensure_contracts_dir();
+        $prefix = $type === 'invoice' ? 'faktura' : 'lejeaftale';
+        $ref = preg_replace('/[^A-Za-z0-9._-]/', '', (string) $booking->booking_ref);
+        $token = substr(hash_hmac('sha256', $ref, wp_salt('auth')), 0, 16);
+        return $dir . $prefix . '-' . $ref . '-' . $token . '.pdf';
+    }
+
+    private static function legacy_pdf_path($type, $booking) {
+        if (empty($booking->booking_ref)) {
+            return '';
+        }
+        $dir = self::ensure_contracts_dir();
+        $prefix = $type === 'invoice' ? 'faktura' : 'lejeaftale';
+        $ref = preg_replace('/[^A-Za-z0-9._-]/', '', (string) $booking->booking_ref);
+        return $dir . $prefix . '-' . $ref . '.pdf';
+    }
+
+    private static function remove_legacy_pdf($type, $booking, $keep_path) {
+        $legacy = self::legacy_pdf_path($type, $booking);
+        if ($legacy && $legacy !== $keep_path && file_exists($legacy)) {
+            @unlink($legacy);
+        }
     }
 }

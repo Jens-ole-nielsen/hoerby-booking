@@ -55,8 +55,17 @@
 
   function rangeIsFree(startISO, days) {
     for (var i = 0; i < days; i++) {
-      var s = dayStatus(addDays(startISO, i));
-      if (s === 'booked' || s === 'pending' || s === 'past') return false;
+      var iso = addDays(startISO, i);
+      var info = dayInfo(iso);
+      var s = info.status;
+      if (s === 'past') return false;
+      if (s !== 'booked' && s !== 'pending') continue;
+      // Enkelt-dags booking kræver hele dagen. Fler-dags: ankomst må ligge på
+      // forriges afgangsdag (half-end), og egen afgang må ligge på næstes ankomstdag (half-start).
+      if (days === 1) return false;
+      if (i === 0 && info.half === 'end') continue;
+      if (i === days - 1 && info.half === 'start') continue;
+      return false;
     }
     return true;
   }
@@ -136,8 +145,9 @@
     grid.querySelectorAll('.hkof-cal-day:not(.hkof-empty)').forEach(function (el) {
       el.addEventListener('click', function () {
         var iso = el.getAttribute('data-date');
-        var status = dayStatus(iso);
-        if (status === 'booked' || status === 'pending' || status === 'past') return;
+        var info = dayInfo(iso);
+        if (info.status === 'past') return;
+        if ((info.status === 'booked' || info.status === 'pending') && info.half !== 'end') return;
         var days = totalDays();
         if (!rangeIsFree(iso, days)) {
           alert('Perioden på ' + days + ' dage fra denne dato er desværre ikke ledig i sin helhed. Vælg en anden startdato, eller vælg færre ekstra dage.');

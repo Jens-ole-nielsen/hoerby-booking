@@ -31,7 +31,10 @@ class HKOF_Cron {
 
         foreach ($due as $booking) {
             $pdf_path = HKOF_PDF::generate_invoice($booking);
-            HKOF_Mailer::send_invoice($booking, $pdf_path);
+            $sent = HKOF_Mailer::send_invoice($booking, $pdf_path);
+            if (!$sent) {
+                continue;
+            }
             HKOF_Mailer::notify_association_invoice_sent($booking, 'leje');
             HKOF_DB::update($booking->id, [
                 'status'          => 'invoice_sent',

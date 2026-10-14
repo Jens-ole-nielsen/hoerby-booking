@@ -55,20 +55,31 @@
       return { status: d.status, half: d.half || null };
     }
 
+    function rangeConflicts(checkIn, checkOut) {
+      var cursor = new Date(checkIn + 'T12:00:00');
+      var stop = new Date(checkOut + 'T12:00:00');
+      var single = checkIn === checkOut;
+      var first = true;
+      while (cursor <= stop) {
+        var iso = cursor.getFullYear() + '-' + pad(cursor.getMonth() + 1) + '-' + pad(cursor.getDate());
+        var info = dayInfo(iso);
+        var last = iso === checkOut;
+        var occupied = info.status === 'booked' || info.status === 'pending';
+        if (occupied) {
+          if (single) return true;
+          if (!(first && info.half === 'end') && !(last && info.half === 'start')) return true;
+        }
+        first = false;
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      return false;
+    }
+
     function updateWarning() {
       if (!warningEl) return;
       var range = currentRange();
       if (!range) { warningEl.style.display = 'none'; return; }
-      var conflict = false;
-      var cursor = new Date(range.checkIn + 'T12:00:00');
-      var stop = new Date(range.checkOut + 'T12:00:00');
-      while (cursor <= stop) {
-        var iso = cursor.getFullYear() + '-' + pad(cursor.getMonth() + 1) + '-' + pad(cursor.getDate());
-        var st = dayInfo(iso).status;
-        if (st === 'booked' || st === 'pending') { conflict = true; break; }
-        cursor.setDate(cursor.getDate() + 1);
-      }
-      warningEl.style.display = conflict ? '' : 'none';
+      warningEl.style.display = rangeConflicts(range.checkIn, range.checkOut) ? '' : 'none';
     }
 
     function render() {
@@ -102,8 +113,8 @@
         grid.querySelectorAll('.hkof-cal-day:not(.hkof-empty)').forEach(function (el) {
           el.addEventListener('click', function () {
             var iso = el.getAttribute('data-date');
-            var status = dayInfo(iso).status;
-            if (status === 'booked' || status === 'pending') return;
+            var info = dayInfo(iso);
+            if ((info.status === 'booked' || info.status === 'pending') && info.half !== 'end') return;
             checkInInput.value = iso;
             checkInInput.dispatchEvent(new Event('change', { bubbles: true }));
             render();
