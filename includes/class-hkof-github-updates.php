@@ -80,15 +80,24 @@ class HKOF_GitHub_Updates {
             $code = (int) wp_remote_retrieve_response_code($resp);
             $body = wp_remote_retrieve_body($resp);
             $json = json_decode($body, true);
+            $gh_msg = is_array($json) && !empty($json['message']) ? (string) $json['message'] : '';
+            $remaining = wp_remote_retrieve_header($resp, 'x-ratelimit-remaining');
+            $limit = wp_remote_retrieve_header($resp, 'x-ratelimit-limit');
             $hint = '';
             if ($code === 401) {
-                $hint = 'GitHub afviser kaldet. Typisk årsag: webhotellet eller WordPress sender et HTTP-login (adgangskodebeskyttet mappe) med til GitHub. Pluginnet fjerner nu den header — hvis I stadig er på en ældre version, skal pluginnet uploades manuelt én gang.';
+                $hint = 'GitHub afviser kaldet (401). Tjek at tokenet er et classic PAT der starter med ghp_, og at det ikke er udløbet.';
             } elseif ($code === 403) {
-                $hint = 'GitHub rate-limit (for mange kald fra hosting-IP). Et gyldigt classic PAT under Indstillinger kan løse det.';
+                $hint = 'GitHub rate-limit (403): for mange uautentificerede kald fra webhotellets IP. Indsæt et classic PAT i feltet ovenfor, gem, og test igen.';
             } elseif ($code === 404) {
                 $hint = 'Repo eller branch blev ikke fundet. Tjek at GitHub-repoet er offentligt.';
             } elseif ($code >= 200 && $code < 300) {
                 $hint = 'Forbindelsen til GitHub virker.';
+            }
+            if ($gh_msg !== '') {
+                $hint = trim($hint . ' GitHub: ' . $gh_msg);
+            }
+            if ($remaining !== '' && $limit !== '') {
+                $hint .= ' Kvote: ' . $remaining . '/' . $limit . ' kald tilbage denne time.';
             }
             $result = [
                 'ok'      => ($code >= 200 && $code < 300),

@@ -370,7 +370,13 @@ class HKOF_Settings {
                             <?php if ($s['github_update_token']): ?>
                                 <label style="display:block;margin-top:6px"><input type="checkbox" name="github_update_token_clear" value="1"> Fjern gemt token</label>
                             <?php endif; ?>
-                            <p class="description">Valgfrit. Repoet er offentligt, så opdateringer skal virke uden token. Token er kun nødvendigt ved 403 (rate-limit). Brug et classic PAT der starter med <code>ghp_</code>. HTTP 401 skyldes næsten altid at webhotellet sender sit eget login med til GitHub — ikke at repoet er privat.</p>
+                            <p class="description">
+                                Ved HTTP 403 (som på delt hosting) skal I indsætte et token her. Sådan opretter du det:<br>
+                                1) Gå til <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">github.com/settings/tokens/new</a> (log ind som den der ejer repoet).<br>
+                                2) Note: fx «HKOF plugin-opdateringer». Udløb: 90 dage eller No expiration.<br>
+                                3) Sæt kun flueben i <code>public_repo</code>. Generate token. Kopiér strengen der starter med <code>ghp_</code>.<br>
+                                4) Indsæt den i feltet, gem indstillinger, og tryk Test igen. I skal se HTTP 200.
+                            </p>
                             <p style="margin-top:10px">
                                 <a class="button" href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=hkof_test_github'), 'hkof_test_github')); ?>">Test GitHub-forbindelse</a>
                             </p>
