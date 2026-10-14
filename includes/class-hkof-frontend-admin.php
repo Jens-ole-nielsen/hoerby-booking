@@ -118,20 +118,30 @@ class HKOF_Frontend_Admin {
         </ul>
 
         <table>
-            <thead><tr><th>Lejeaftale nr.</th><th>Navn</th><th>Periode</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Lejeaftale nr.</th><th>Navn</th><th>Periode</th><th>Status</th><th>Note</th><th></th></tr></thead>
             <tbody>
             <?php if (!$bookings): ?>
-                <tr><td colspan="5">Ingen bookinger fundet.</td></tr>
+                <tr><td colspan="6">Ingen bookinger fundet.</td></tr>
             <?php else: foreach ($bookings as $b):
                 $labels = HKOF_Admin::status_labels();
                 $l = $labels[$b->status] ?? [$b->status, '#6b7280'];
                 $view_url = add_query_arg('hkof_view', $b->id, $base);
+                $note_url = $view_url . '#hkof-note';
             ?>
                 <tr>
                     <td><?php echo esc_html($b->booking_ref ?: '—'); ?></td>
                     <td><?php echo esc_html($b->first_name . ' ' . $b->last_name); ?></td>
                     <td><?php echo esc_html(date_i18n('d.m.Y', strtotime($b->check_in_date)) . ' – ' . date_i18n('d.m.Y', strtotime($b->check_out_date))); ?></td>
                     <td><span class="hkof-badge" style="background:<?php echo esc_attr($l[1]); ?>"><?php echo esc_html($l[0]); ?></span></td>
+                    <td>
+                        <?php if (!empty($b->admin_notes)):
+                            $preview = HKOF_Admin::truncate($b->admin_notes, 40);
+                        ?>
+                            <a href="<?php echo esc_url($note_url); ?>" title="<?php echo esc_attr($b->admin_notes); ?>">📝 <?php echo esc_html($preview); ?></a>
+                        <?php else: ?>
+                            <a href="<?php echo esc_url($note_url); ?>" style="color:#9ca3af">+ tilføj note</a>
+                        <?php endif; ?>
+                    </td>
                     <td><a class="hkof-btn secondary" href="<?php echo esc_url($view_url); ?>">Åbn →</a> <a class="hkof-inline-btn" href="<?php echo esc_url(add_query_arg('hkof_edit', '1', $view_url)); ?>" title="Rediger direkte">✏️</a></td>
                 </tr>
             <?php endforeach; endif; ?>

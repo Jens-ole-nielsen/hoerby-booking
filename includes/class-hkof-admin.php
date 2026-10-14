@@ -169,7 +169,7 @@ class HKOF_Admin {
     }
 
     /** Trunkerer tekst sikkert til UTF-8 (æøå) uden at kræve mbstring-extension på serveren */
-    private static function truncate($text, $length) {
+    public static function truncate($text, $length) {
         if (function_exists('mb_strlen') && function_exists('mb_substr')) {
             return mb_strlen($text) > $length ? mb_substr($text, 0, $length) . '…' : $text;
         }
