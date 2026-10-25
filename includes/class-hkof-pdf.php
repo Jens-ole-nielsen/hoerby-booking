@@ -43,9 +43,10 @@ class HKOF_PDF extends FPDF {
                 $logo_h = 50 * ($info[1] / $info[0]);
             }
         }
-        $this->margin_other = (int) max(30, ceil(8 + $logo_h + 6));
+        $this->margin_other = (int) max(30, ceil(8 + $logo_h + 8));
         $address_h = $this->show_address_on_first_page ? (count($this->header_address_lines) * 4 + 4) : 0;
-        $this->margin_page1 = (int) max($this->margin_other, ceil(8 + $logo_h + 2 + $address_h + 4));
+        // Ekstra luft under logo/adresse, så brødteksten ikke starter for højt
+        $this->margin_page1 = (int) max($this->margin_other, ceil(8 + $logo_h + 2 + $address_h + 12));
     }
 
     /**
@@ -85,6 +86,10 @@ class HKOF_PDF extends FPDF {
 
         $margin = ($this->PageNo() === 1) ? $this->margin_page1 : $this->margin_other;
         $this->SetMargins($this->lMargin, $margin, $this->rMargin);
+        // Vigtigt: adresselinjerne ovenfor efterlader X ude til højre. Denne FPDF-version
+        // nulstiller ikke X/Y efter Header(), så uden dette skrives "LEJEAFTALE" i en
+        // smal spalte under logoet og brydes midt i ordet.
+        $this->SetXY($this->lMargin, $this->tMargin);
     }
 
     public function Footer() {
@@ -128,14 +133,14 @@ class HKOF_PDF extends FPDF {
         }
 
         $pdf->SetFont('Arial', 'B', 16);
-        $pdf->Cell(0, 10, self::enc('LEJEAFTALE'), 0, 1, 'C');
-        $pdf->Ln(2);
+        $pdf->Cell(0, 10, self::enc('LEJEAFTALE'), 0, 1, 'L');
+        $pdf->Ln(8);
 
         $pdf->SetFont('Arial', 'B', 11);
         $pdf->Cell(0, 6, self::enc('Lejeaftale nr. ' . $booking->booking_ref), 0, 1);
         $pdf->SetFont('Arial', '', 11);
         $pdf->Cell(0, 6, self::enc('Den ' . date_i18n('d.m.Y')), 0, 1);
-        $pdf->Ln(4);
+        $pdf->Ln(6);
 
         $pdf->SetFont('Arial', '', 11);
         $pdf->MultiCell(0, 6, self::enc(HKOF_Settings::contract_text('intro_text')));
@@ -290,8 +295,8 @@ class HKOF_PDF extends FPDF {
         }
 
         $pdf->SetFont('Arial', 'B', 16);
-        $pdf->Cell(0, 10, self::enc('FAKTURA'), 0, 1, 'C');
-        $pdf->Ln(2);
+        $pdf->Cell(0, 10, self::enc('FAKTURA'), 0, 1, 'L');
+        $pdf->Ln(8);
 
         $pdf->SetFont('Arial', '', 11);
         $pdf->Cell(0, 6, self::enc('Fakturanr.: ' . $booking->booking_ref), 0, 1);
