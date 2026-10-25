@@ -119,7 +119,14 @@ class HKOF_PDF extends FPDF {
         $pdf->SetAutoPageBreak(true, 20);
         $pdf->AddPage();
 
-        // Foreningsnavn fjernes fra side 1 – logoet står i stedet. Adresse ligger under logoet.
+        // Foreningsnavn i venstre side fjernes når logo bruges. Uden logo
+        // vises navnet stadig, så dokumentet ikke mangler afsender.
+        if (!$logo_path) {
+            $pdf->SetFont('Arial', 'B', 14);
+            $pdf->Cell(0, 8, self::enc($s['association_name']), 0, 1);
+            $pdf->Ln(2);
+        }
+
         $pdf->SetFont('Arial', 'B', 16);
         $pdf->Cell(0, 10, self::enc('LEJEAFTALE'), 0, 1, 'C');
         $pdf->Ln(2);
@@ -275,6 +282,12 @@ class HKOF_PDF extends FPDF {
         $pdf->SetMargins(15, $pdf->margin_page1, 15);
         $pdf->SetAutoPageBreak(true, 20);
         $pdf->AddPage();
+
+        if (!$logo_path) {
+            $pdf->SetFont('Arial', 'B', 14);
+            $pdf->Cell(0, 8, self::enc($s['association_name']), 0, 1);
+            $pdf->Ln(2);
+        }
 
         $pdf->SetFont('Arial', 'B', 16);
         $pdf->Cell(0, 10, self::enc('FAKTURA'), 0, 1, 'C');
