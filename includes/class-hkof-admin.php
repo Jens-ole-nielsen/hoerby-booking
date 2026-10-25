@@ -268,10 +268,17 @@ class HKOF_Admin {
                     <p class="description">Depositum er tilbageholdt. Du kan stadig vælge at tilbagebetale senere, hvis I aftaler det.</p>
                     <a href="<?php echo esc_url($u('mark_deposit_refunded')); ?>" class="<?php echo esc_attr($btn); ?>" onclick="return confirm('Alligevel tilbagebetale depositum til lejer? Der sendes en mail, og bookingen markeres som afsluttet.')">💸 Tilbagebetal depositum alligevel</a>
                 <?php endif; ?>
-                <?php if (!in_array($b->status, ['rejected', 'cancelled', 'completed', 'deposit_retained'], true)): ?>
-                    <a href="<?php echo esc_url($u('cancel')); ?>" class="<?php echo esc_attr($btn_danger); ?>" style="color:#b91c1c" onclick="return confirm('Annullér denne booking? Den beholder historikken, men frigiver datoerne.')">🚫 Annullér booking</a>
+                <?php
+                $is_closed = in_array($b->status, ['rejected', 'cancelled', 'completed', 'deposit_retained'], true);
+                if (!$is_closed): ?>
+                    <a href="<?php echo esc_url($u('cancel')); ?>" class="<?php echo esc_attr($btn_danger); ?>" style="color:#b91c1c" onclick="return confirm('Annullér/aflys denne booking? Lejeren får en mail om aflysningen, og datoerne frigives. Historikken bevares.')">🚫 Annullér booking (sender mail til lejer)</a>
                 <?php endif; ?>
-                <a href="<?php echo esc_url($u('delete')); ?>" class="<?php echo esc_attr($btn_danger); ?>" style="color:#b91c1c;margin-top:4px" onclick="return confirm('SLET denne booking permanent? Dette kan ikke fortrydes – bookingen fjernes helt fra systemet.')">🗑️ Slet booking permanent</a>
+                <?php
+                $delete_msg = $is_closed
+                    ? 'SLET denne booking permanent? Dette kan ikke fortrydes – bookingen fjernes helt fra systemet.'
+                    : "ADVARSEL: Denne booking er stadig aktiv.\n\nLejeren får INGEN mail, hvis du sletter den nu.\n\nAnbefaling: Vælg i stedet \"Annullér booking\" først, så lejeren får besked om aflysningen. Herefter kan du slette den, hvis du vil fjerne den helt.\n\nVil du alligevel slette permanent uden at varsle lejeren?";
+                ?>
+                <a href="<?php echo esc_url($u('delete')); ?>" class="<?php echo esc_attr($btn_danger); ?>" style="color:#b91c1c;margin-top:4px" onclick="return confirm('<?php echo esc_js($delete_msg); ?>')">🗑️ Slet booking permanent</a>
             </div>
         </div>
 
@@ -805,6 +812,11 @@ class HKOF_Admin {
 
             case 'cancel':
                 HKOF_DB::update($id, ['status' => 'cancelled']);
+                $booking = HKOF_DB::get($id);
+                $sent = HKOF_Mailer::send_cancellation($booking);
+                if (!$sent) {
+                    $mail_error = self::mail_not_sent_message('Bookingen er annulleret, men mailen til lejer blev ikke sendt.');
+                }
                 break;
 
             case 'delete':

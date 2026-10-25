@@ -199,6 +199,25 @@ class HKOF_Mailer {
                     . "I er velkomne til at kontakte os for en alternativ dato.\n\n"
                     . "MVH [afsender_navn]",
             ],
+            'cancellation' => [
+                'label' => 'Booking annulleret / aflyst (til gæst)',
+                'to'    => 'gæsten',
+                'tokens' => [
+                    '[fornavn]' => 'Lejers fornavn',
+                    '[periode]' => 'Ankomst - afgang',
+                    '[lejeaftale_nr]' => 'Lejeaftalens nummer (kan være tom)',
+                    '[forening_navn]' => 'Foreningens navn',
+                    '[afsender_navn]' => 'Afsendernavn i mails',
+                    '[udlejning_navn]' => 'Kontaktperson for udlejning',
+                ],
+                'default_subject' => 'Jeres booking er annulleret – [forening_navn]',
+                'default_body' =>
+                    "Hej [fornavn],\n\n"
+                    . "Vi skriver for at meddele, at jeres booking for perioden [periode] er blevet annulleret.\n"
+                    . "Har I spørgsmål, er I velkomne til at kontakte os.\n\n"
+                    . "MVH [afsender_navn]\n"
+                    . "[udlejning_navn]",
+            ],
             'final_payment_confirmation' => [
                 'label' => 'Betaling modtaget – endelig bekræftelse (til gæst)',
                 'to'    => 'gæsten',
@@ -366,6 +385,14 @@ class HKOF_Mailer {
         $r = self::render('rejection', $tokens);
         if (!$r) return;
         self::dispatch($booking->email, $r['subject'], $r['body']);
+    }
+
+    /** Sendes når en booking annulleres/aflyses – så lejer får besked */
+    public static function send_cancellation($booking) {
+        $tokens = self::tokens($booking);
+        $r = self::render('cancellation', $tokens);
+        if (!$r) return false;
+        return (bool) self::dispatch($booking->email, $r['subject'], $r['body']);
     }
 
     /** Kvittering til lejer når selve lejen er registreret som betalt */
