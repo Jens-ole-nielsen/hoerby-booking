@@ -10,9 +10,22 @@ require_once HKOF_BOOKING_DIR . 'lib/fpdf/fpdf.php';
 class HKOF_PDF extends FPDF {
 
     private $logo_path = '';
+    /** @var string[] Adresselinjer vist under logoet på side 1 */
+    private $header_address_lines = [];
+    private $show_address_on_first_page = true;
+    public $margin_page1 = 44;
+    public $margin_other = 32;
 
     public function set_logo_path($path) {
         $this->logo_path = $path;
+    }
+
+    public function set_header_address_lines(array $lines) {
+        $this->header_address_lines = array_values(array_filter(array_map('strval', $lines)));
+    }
+
+    public function set_show_address_on_first_page($show) {
+        $this->show_address_on_first_page = (bool) $show;
     }
 
     /** Konverterer UTF-8 til CP1252/ISO-8859-1 så æøå vises korrekt med FPDF's kernefonte */
@@ -21,16 +34,57 @@ class HKOF_PDF extends FPDF {
         return $converted !== false ? $converted : $text;
     }
 
-    public function Header() {
+    /** Beregn top-margener ud fra logo-højde, så brødtekst ikke overlapper header */
+    public function configure_header_margins() {
+        $logo_h = 20;
         if ($this->logo_path && file_exists($this->logo_path)) {
-            $this->Image($this->logo_path, 145, 8, 55);
+            $info = @getimagesize($this->logo_path);
+            if ($info && !empty($info[0])) {
+                $logo_h = 50 * ($info[1] / $info[0]);
+            }
         }
-        // Fra side 2 og frem er der intet fast sidehoved med foreningsnavn (det ligger kun
-        // på side 1), så uden dette ville brødteksten begynde helt oppe i logoets område og
-        // kollidere med det. Vi rykker derfor startpunktet for teksten et stykke ned.
-        if ($this->PageNo() > 1) {
-            $this->SetY(26);
+        $this->margin_other = (int) max(30, ceil(8 + $logo_h + 6));
+        $address_h = $this->show_address_on_first_page ? (count($this->header_address_lines) * 4 + 4) : 0;
+        $this->margin_page1 = (int) max($this->margin_other, ceil(8 + $logo_h + 2 + $address_h + 4));
+    }
+
+    /**
+     * Logo øverst til højre. På side 1 vises adresse under logoet.
+     * Opdaterer tMargin pr. side – FPDF sætter Y = tMargin efter Header(),
+     * så en SetY() her alene ville blive overskrevet (det var årsagen til
+     * overlap på side 2).
+     */
+    public function Header() {
+        $top = 8;
+        $logo_w = 50;
+        $page_w = $this->GetPageWidth();
+        $logo_x = $page_w - $this->rMargin - $logo_w;
+        $logo_h = 0;
+
+        if ($this->logo_path && file_exists($this->logo_path)) {
+            $info = @getimagesize($this->logo_path);
+            if ($info && !empty($info[0])) {
+                $logo_h = $logo_w * ($info[1] / $info[0]);
+            } else {
+                $logo_h = 20;
+            }
+            $this->Image($this->logo_path, $logo_x, $top, $logo_w);
         }
+
+        if ($this->show_address_on_first_page && $this->PageNo() === 1 && $this->header_address_lines) {
+            $y = $top + ($logo_h > 0 ? $logo_h + 2 : 0);
+            $this->SetFont('Arial', '', 8);
+            $this->SetTextColor(70, 70, 70);
+            foreach ($this->header_address_lines as $line) {
+                $this->SetXY($logo_x, $y);
+                $this->Cell($logo_w, 4, self::enc($line), 0, 0, 'R');
+                $y += 4;
+            }
+            $this->SetTextColor(0, 0, 0);
+        }
+
+        $margin = ($this->PageNo() === 1) ? $this->margin_page1 : $this->margin_other;
+        $this->SetMargins($this->lMargin, $margin, $this->rMargin);
     }
 
     public function Footer() {
@@ -54,17 +108,18 @@ class HKOF_PDF extends FPDF {
             if ($path && file_exists($path)) $logo_path = $path;
         }
         $pdf->set_logo_path($logo_path);
-
+        $pdf->set_header_address_lines([
+            $s['association_address'],
+            $s['association_postal'],
+            'Hjemmeside: ' . $s['association_website'],
+        ]);
+        $pdf->set_show_address_on_first_page(true);
+        $pdf->configure_header_margins();
+        $pdf->SetMargins(15, $pdf->margin_page1, 15);
+        $pdf->SetAutoPageBreak(true, 20);
         $pdf->AddPage();
-        $pdf->SetMargins(15, 15, 15);
-        $pdf->SetFont('Arial', 'B', 14);
-        $pdf->Cell(120, 8, self::enc($s['association_name']), 0, 1);
-        $pdf->SetFont('Arial', '', 10);
-        $pdf->Cell(120, 5, self::enc($s['association_address']), 0, 1);
-        $pdf->Cell(120, 5, self::enc($s['association_postal']), 0, 1);
-        $pdf->Cell(120, 5, self::enc('Hjemmeside: ' . $s['association_website']), 0, 1);
-        $pdf->Ln(8);
 
+        // Foreningsnavn fjernes fra side 1 – logoet står i stedet. Adresse ligger under logoet.
         $pdf->SetFont('Arial', 'B', 16);
         $pdf->Cell(0, 10, self::enc('LEJEAFTALE'), 0, 1, 'C');
         $pdf->Ln(2);
@@ -210,16 +265,16 @@ class HKOF_PDF extends FPDF {
             if ($path && file_exists($path)) $logo_path = $path;
         }
         $pdf->set_logo_path($logo_path);
-
+        $pdf->set_header_address_lines([
+            $s['association_address'],
+            $s['association_postal'],
+            'CVR: ' . $s['cvr'],
+        ]);
+        $pdf->set_show_address_on_first_page(true);
+        $pdf->configure_header_margins();
+        $pdf->SetMargins(15, $pdf->margin_page1, 15);
+        $pdf->SetAutoPageBreak(true, 20);
         $pdf->AddPage();
-        $pdf->SetMargins(15, 15, 15);
-        $pdf->SetFont('Arial', 'B', 14);
-        $pdf->Cell(120, 8, self::enc($s['association_name']), 0, 1);
-        $pdf->SetFont('Arial', '', 10);
-        $pdf->Cell(120, 5, self::enc($s['association_address']), 0, 1);
-        $pdf->Cell(120, 5, self::enc($s['association_postal']), 0, 1);
-        $pdf->Cell(120, 5, self::enc('CVR: ' . $s['cvr']), 0, 1);
-        $pdf->Ln(8);
 
         $pdf->SetFont('Arial', 'B', 16);
         $pdf->Cell(0, 10, self::enc('FAKTURA'), 0, 1, 'C');
