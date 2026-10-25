@@ -62,7 +62,7 @@ class HKOF_Frontend_Admin {
             .hkof-fe-admin .hkof-edit-table td{max-width:360px}
             .hkof-fe-admin .hkof-inline-btn{display:inline-block;padding:8px 14px;border-radius:8px;background:#f3f4f6;color:#374151;text-decoration:none;font-size:.95em;font-weight:600;border:1px solid #d1d5db;cursor:pointer;margin-left:8px}
             .hkof-fe-admin .hkof-error-box{padding:12px 16px;border-radius:8px;margin-bottom:16px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:1em}
-            .hkof-fe-admin label{font-size:15px;font-weight:600;color:#374151}
+            .hkof-fe-admin label{font-size:16px;font-weight:600;color:#1f2937}
         </style>
         <?php
 
