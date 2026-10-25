@@ -29,7 +29,7 @@ class HKOF_Frontend_Admin {
     /** Nuværende side-URL renset for vores egne midlertidige query-parametre (visning/kvitteringer) */
     private static function clean_url($extra_remove = []) {
         $url = self::current_full_url();
-        $strip = array_merge(['hkof_view', 'hkof_edit', 'hkof_done', 'hkof_note_saved', 'hkof_mail_error', 'error'], $extra_remove);
+        $strip = array_merge(['hkof_view', 'hkof_edit', 'hkof_done', 'hkof_deleted', 'hkof_note_saved', 'hkof_mail_error', 'error'], $extra_remove);
         return remove_query_arg($strip, $url);
     }
 
@@ -116,6 +116,9 @@ class HKOF_Frontend_Admin {
 
         <?php if (isset($_GET['hkof_done'])): ?>
             <div class="hkof-notice">✅ Handlingen blev udført.</div>
+        <?php endif; ?>
+        <?php if (isset($_GET['hkof_deleted'])): ?>
+            <div class="hkof-notice">🗑️ Bookingen er slettet permanent.</div>
         <?php endif; ?>
 
         <ul class="hkof-tabs">

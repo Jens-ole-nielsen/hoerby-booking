@@ -114,6 +114,13 @@ class HKOF_Admin {
         <div class="wrap hkof-wrap">
             <h1>Lokale Booking – Bookinger</h1>
 
+            <?php if (!empty($_GET['hkof_deleted'])): ?>
+                <div class="notice notice-success is-dismissible"><p>Bookingen er slettet permanent.</p></div>
+            <?php endif; ?>
+            <?php if (!empty($_GET['hkof_done'])): ?>
+                <div class="notice notice-success is-dismissible"><p>Handlingen blev udført.</p></div>
+            <?php endif; ?>
+
             <div style="padding:12px 16px;border-radius:8px;margin-bottom:16px;border:1px solid #c3d9ec;background:#f0f6fc">
                 <p style="margin:0 0 6px"><strong>📌 Shortcodes til jeres side</strong></p>
                 <p style="margin:0 0 4px">Booking-kalender/formular (det gæster ser): <code style="user-select:all;background:#fff;padding:2px 8px;border:1px solid #ddd;border-radius:4px">[hkof_booking]</code> – sæt ind på jeres almindelige booking-side.</p>
@@ -262,8 +269,9 @@ class HKOF_Admin {
                     <a href="<?php echo esc_url($u('mark_deposit_refunded')); ?>" class="<?php echo esc_attr($btn); ?>" onclick="return confirm('Alligevel tilbagebetale depositum til lejer? Der sendes en mail, og bookingen markeres som afsluttet.')">💸 Tilbagebetal depositum alligevel</a>
                 <?php endif; ?>
                 <?php if (!in_array($b->status, ['rejected', 'cancelled', 'completed', 'deposit_retained'], true)): ?>
-                    <a href="<?php echo esc_url($u('cancel')); ?>" class="<?php echo esc_attr($btn_danger); ?>" style="color:#b91c1c" onclick="return confirm('Annullér denne booking helt?')">🚫 Annullér booking</a>
+                    <a href="<?php echo esc_url($u('cancel')); ?>" class="<?php echo esc_attr($btn_danger); ?>" style="color:#b91c1c" onclick="return confirm('Annullér denne booking? Den beholder historikken, men frigiver datoerne.')">🚫 Annullér booking</a>
                 <?php endif; ?>
+                <a href="<?php echo esc_url($u('delete')); ?>" class="<?php echo esc_attr($btn_danger); ?>" style="color:#b91c1c;margin-top:4px" onclick="return confirm('SLET denne booking permanent? Dette kan ikke fortrydes – bookingen fjernes helt fra systemet.')">🗑️ Slet booking permanent</a>
             </div>
         </div>
 
@@ -798,6 +806,25 @@ class HKOF_Admin {
             case 'cancel':
                 HKOF_DB::update($id, ['status' => 'cancelled']);
                 break;
+
+            case 'delete':
+                // Slet lokale PDF-filer før databaserækken fjernes
+                if (!empty($booking->booking_ref)) {
+                    foreach (['contract', 'invoice'] as $pdf_type) {
+                        $path = HKOF_PDF::find_existing_pdf($pdf_type, $booking);
+                        if ($path && is_file($path)) {
+                            @unlink($path);
+                        }
+                    }
+                }
+                HKOF_DB::delete($id);
+                $redirect_to = isset($_GET['redirect_to']) ? esc_url_raw(wp_unslash($_GET['redirect_to'])) : '';
+                // Undgå redirect tilbage til den slettede bookings side
+                if (!$redirect_to || strpos($redirect_to, 'action=view') !== false || strpos($redirect_to, 'hkof_view=') !== false) {
+                    $redirect_to = admin_url('admin.php?page=hkof-bookings');
+                }
+                wp_safe_redirect(add_query_arg('hkof_deleted', '1', $redirect_to));
+                exit;
 
             case 'retry_gdrive_upload':
                 $pdf_path = HKOF_GDrive::locate_or_regenerate_contract($booking);

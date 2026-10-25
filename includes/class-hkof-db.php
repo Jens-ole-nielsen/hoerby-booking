@@ -129,6 +129,16 @@ class HKOF_DB {
         return $wpdb->update(self::table(), $data, ['id' => $id]);
     }
 
+    /** Sletter en booking permanent fra databasen */
+    public static function delete($id) {
+        global $wpdb;
+        $id = (int) $id;
+        if ($id <= 0) {
+            return false;
+        }
+        return $wpdb->delete(self::table(), ['id' => $id], ['%d']) !== false;
+    }
+
     public static function get($id) {
         global $wpdb;
         return $wpdb->get_row($wpdb->prepare("SELECT * FROM " . self::table() . " WHERE id = %d", $id));
