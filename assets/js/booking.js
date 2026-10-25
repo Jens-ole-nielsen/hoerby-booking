@@ -70,19 +70,34 @@
     return true;
   }
 
+  function updateBookingNote() {
+    var note = document.getElementById('hkof-booking-note');
+    if (!note) return;
+    if (state.priceType === 'begravelse') {
+      note.textContent = 'Bemærk: huset er ikke endeligt booket før I modtager en lejeaftale på mail.';
+    } else {
+      note.textContent = 'Bemærk: huset er ikke endeligt booket før I modtager en lejeaftale på mail og har indbetalt depositum.';
+    }
+  }
+
   function updatePriceEstimate() {
     var el = document.getElementById('hkof-price-estimate');
     if (!el) return;
     var rental = basePrice();
     var extraFee = state.extraDays * state.extraPrice;
     var total = rental + extraFee + state.priceMiljoe;
-    var html = 'Lejeafgift: ' + rental.toLocaleString('da-DK') + ' kr.';
+    var lines = [];
+    lines.push('<div class="hkof-price-line">Lejeafgift: <strong>' + rental.toLocaleString('da-DK') + ' kr.</strong></div>');
     if (state.extraDays > 0) {
-      html += ' + ' + state.extraDays + ' ekstra dag' + (state.extraDays > 1 ? 'e' : '') + ' (' + extraFee.toLocaleString('da-DK') + ' kr.)';
+      lines.push('<div class="hkof-price-line">Ekstra dage (' + state.extraDays + '): <strong>' + extraFee.toLocaleString('da-DK') + ' kr.</strong></div>');
     }
-    html += ' + miljøafgift ' + state.priceMiljoe.toLocaleString('da-DK') + ' kr. = <strong>' + total.toLocaleString('da-DK') + ' kr.</strong>';
-    html += '<br><span class="hkof-note">Hertil kommer depositum, som opkræves separat.</span>';
-    el.innerHTML = html;
+    lines.push('<div class="hkof-price-line">Miljøafgift: <strong>' + state.priceMiljoe.toLocaleString('da-DK') + ' kr.</strong></div>');
+    lines.push('<div class="hkof-price-total">I alt: <strong>' + total.toLocaleString('da-DK') + ' kr.</strong></div>');
+    if (state.priceType !== 'begravelse') {
+      lines.push('<div class="hkof-price-hint">Hertil kommer depositum, som opkræves separat.</div>');
+    }
+    el.innerHTML = lines.join('');
+    updateBookingNote();
   }
 
   function clearSelection(message) {

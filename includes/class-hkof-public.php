@@ -80,7 +80,7 @@ class HKOF_Public {
                     </div>
                 </div>
 
-                <p class="hkof-note">Bemærk: huset er ikke endeligt booket før I modtager en lejeaftale på mail og har indbetalt depositum.</p>
+                <p id="hkof-booking-note" class="hkof-note">Bemærk: huset er ikke endeligt booket før I modtager en lejeaftale på mail og har indbetalt depositum.</p>
                 <button type="submit" class="hkof-submit-btn">Send bookingforespørgsel</button>
                 <div id="hkof-form-message"></div>
             </form>
@@ -177,7 +177,8 @@ class HKOF_Public {
         $s = HKOF_Settings::all();
         $rental = HKOF_Settings::price_for_type($price_type);
         $environment_fee = (float) $s['price_miljoeafgift'];
-        $deposit = (float) $s['price_depositum'];
+        // Begravelser opkræves uden depositum
+        $deposit = ($price_type === 'begravelse') ? 0.0 : (float) $s['price_depositum'];
         $extra_days_fee = $extra_days * (float) $s['price_extra_day'];
 
         $id = HKOF_DB::insert_if_available([
