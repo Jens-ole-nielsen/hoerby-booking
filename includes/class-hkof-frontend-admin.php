@@ -45,7 +45,7 @@ class HKOF_Frontend_Admin {
             .hkof-fe-admin table{width:100%;border-collapse:collapse;margin:0 0 1.2em;font-size:1em}
             .hkof-fe-admin th,.hkof-fe-admin td{text-align:left;padding:12px 12px;border-bottom:1px solid #e5e7eb;vertical-align:top}
             .hkof-fe-admin th{background:#f9fafb;font-weight:600}
-            .hkof-fe-admin .hkof-badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:.85em;font-weight:600;color:#fff;white-space:nowrap}
+            .hkof-fe-admin .hkof-badge{display:inline-block;padding:5px 12px;border-radius:8px;font-size:.85em;font-weight:600;color:#fff;line-height:1.3;text-align:center;vertical-align:middle;white-space:normal;max-width:14em}
             .hkof-fe-admin .hkof-tabs{list-style:none;display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0 0 18px}
             .hkof-fe-admin .hkof-tabs a{display:inline-block;padding:9px 14px;border-radius:8px;background:#f3f4f6;color:#374151;text-decoration:none;font-size:.95em}
             .hkof-fe-admin .hkof-tabs a.current{background:#1d4ed8;color:#fff}
@@ -138,7 +138,7 @@ class HKOF_Frontend_Admin {
                     <td><?php echo esc_html($b->booking_ref ?: '—'); ?></td>
                     <td><?php echo esc_html($b->first_name . ' ' . $b->last_name); ?></td>
                     <td><?php echo esc_html(date_i18n('d.m.Y', strtotime($b->check_in_date)) . ' – ' . date_i18n('d.m.Y', strtotime($b->check_out_date))); ?></td>
-                    <td><span class="hkof-badge" style="background:<?php echo esc_attr($l[1]); ?>"><?php echo esc_html($l[0]); ?></span></td>
+                    <td><span class="hkof-badge" style="background:<?php echo esc_attr($l[1]); ?>"><?php echo nl2br(esc_html($l[0]), false); ?></span></td>
                     <td>
                         <?php if (!empty($b->admin_notes)):
                             $preview = HKOF_Admin::truncate($b->admin_notes, 40);
@@ -168,7 +168,7 @@ class HKOF_Frontend_Admin {
         $self_url = add_query_arg('hkof_view', $id, $list_url); // redirect-mål efter handlinger: bliv på denne bookings side
         ?>
         <p><a href="<?php echo esc_url($list_url); ?>">← Tilbage til listen</a></p>
-        <h2><?php echo esc_html($b->first_name . ' ' . $b->last_name); ?> <span class="hkof-badge" style="background:<?php echo esc_attr($l[1]); ?>"><?php echo esc_html($l[0]); ?></span></h2>
+        <h2><?php echo esc_html($b->first_name . ' ' . $b->last_name); ?> <span class="hkof-badge" style="background:<?php echo esc_attr($l[1]); ?>"><?php echo nl2br(esc_html($l[0]), false); ?></span></h2>
 
         <?php if (isset($_GET['hkof_done'])): ?><div class="hkof-notice">✅ Handlingen blev udført.</div><?php endif; ?>
         <?php if (!empty($_GET['hkof_mail_error'])): ?><div class="hkof-error-box"><?php echo esc_html(sanitize_text_field(wp_unslash($_GET['hkof_mail_error']))); ?></div><?php endif; ?>

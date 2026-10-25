@@ -9,7 +9,7 @@ class HKOF_Admin {
         'deposit_paid'     => ['Depositum modtaget', '#0f766e'],
         'invoice_sent'     => ['Faktura sendt', '#7c3aed'],
         'paid'             => ['Betalt', '#15803d'],
-        'refund_pending'   => ['Tilbagebetaling af depositum mangler', '#c2410c'],
+        'refund_pending'   => ["Tilbagebetaling af\ndepositum mangler", '#c2410c'],
         'deposit_retained' => ['Depositum tilbageholdt', '#9f1239'],
         'completed'        => ['Afsluttet', '#4b5563'],
         'rejected'         => ['Afvist', '#b91c1c'],
@@ -54,9 +54,21 @@ class HKOF_Admin {
         return self::$status_labels;
     }
 
+    /** HTML til status-badge (understøtter linjeskift via \\n i label-teksten) */
     public static function label($status) {
         $l = self::$status_labels[$status] ?? [$status, '#6b7280'];
-        return sprintf('<span style="background:%s;color:#fff;padding:3px 9px;border-radius:12px;font-size:12px;font-weight:600">%s</span>', $l[1], esc_html($l[0]));
+        $text = nl2br(esc_html($l[0]), false);
+        return sprintf(
+            '<span class="hkof-status-badge" style="display:inline-block;background:%s;color:#fff;padding:5px 10px;border-radius:8px;font-size:12px;font-weight:600;line-height:1.3;text-align:center;vertical-align:middle">%s</span>',
+            esc_attr($l[1]),
+            $text
+        );
+    }
+
+    /** Ren tekst uden HTML (til title/confirm o.l.) */
+    public static function label_text($status) {
+        $l = self::$status_labels[$status] ?? [$status, '#6b7280'];
+        return str_replace("\n", ' ', $l[0]);
     }
 
     public static function render_reject_reason_script() {
