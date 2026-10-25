@@ -70,12 +70,16 @@ class HKOF_Frontend_Admin {
             self::render_login_prompt();
         } elseif (!current_user_can('edit_posts')) {
             echo '<div class="hkof-box"><p>🔒 Din bruger har desværre ikke adgang til at administrere bookinger. Kontakt en administrator hvis du mener dette er en fejl.</p></div>';
-        } elseif (isset($_GET['hkof_view']) && isset($_GET['hkof_edit'])) {
-            self::render_edit((int) $_GET['hkof_view']);
-        } elseif (isset($_GET['hkof_view'])) {
-            self::render_detail((int) $_GET['hkof_view']);
         } else {
-            self::render_list();
+            // Opdatér status for bookinger hvor arrangementsdatoen er passeret
+            HKOF_Cron::apply_post_event_statuses();
+            if (isset($_GET['hkof_view']) && isset($_GET['hkof_edit'])) {
+                self::render_edit((int) $_GET['hkof_view']);
+            } elseif (isset($_GET['hkof_view'])) {
+                self::render_detail((int) $_GET['hkof_view']);
+            } else {
+                self::render_list();
+            }
         }
 
         echo '</div>';
@@ -249,9 +253,15 @@ class HKOF_Frontend_Admin {
             <?php elseif ($b->status === 'invoice_sent'): ?>
                 <a class="hkof-btn" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'mark_invoice_paid', $self_url)); ?>" onclick="return confirm('Bekræft at fakturaen er betalt? Lejeren får en bekræftelsesmail.')">✅ Registrér faktura betalt</a>
             <?php elseif ($b->status === 'paid'): ?>
-                <a class="hkof-btn secondary" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'mark_completed', $self_url)); ?>">🏁 Markér som afsluttet</a>
+                <p class="hkof-hint">Efter arrangementsdatoen skifter status automatisk til "Tilbagebetaling af depositum mangler" (eller "Afsluttet" hvis der ikke er depositum).</p>
+            <?php elseif ($b->status === 'refund_pending'): ?>
+                <a class="hkof-btn" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'mark_deposit_refunded', $self_url)); ?>" onclick="return confirm('Bekræft at depositum er tilbagebetalt til lejer? Der sendes en mail om tilbagebetalingen.')">💸 Depositum tilbagebetalt – send mail &amp; afslut</a>
+                <a class="hkof-btn danger" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'mark_deposit_retained', $self_url)); ?>" onclick="return confirm('Tilbagehold depositum fordi lokalet ikke er afleveret i tilfredsstillende stand?')">⛔ Behold depositum</a>
+            <?php elseif ($b->status === 'deposit_retained'): ?>
+                <p class="hkof-hint">Depositum er tilbageholdt. Du kan stadig vælge at tilbagebetale senere, hvis I aftaler det.</p>
+                <a class="hkof-btn secondary" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'mark_deposit_refunded', $self_url)); ?>" onclick="return confirm('Alligevel tilbagebetale depositum til lejer? Der sendes en mail, og bookingen markeres som afsluttet.')">💸 Tilbagebetal depositum alligevel</a>
             <?php endif; ?>
-            <?php if (!in_array($b->status, ['rejected', 'cancelled', 'completed'], true)): ?>
+            <?php if (!in_array($b->status, ['rejected', 'cancelled', 'completed', 'deposit_retained'], true)): ?>
                 <a class="hkof-btn danger" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'cancel', $self_url)); ?>" onclick="return confirm('Annullér denne booking helt?')">🚫 Annullér booking</a>
             <?php endif; ?>
             <a class="hkof-btn secondary" href="<?php echo esc_url(add_query_arg('hkof_edit', '1', $self_url)); ?>">✏️ Rediger booking (datoer, priser, oplysninger, status)</a>
@@ -267,6 +277,7 @@ class HKOF_Frontend_Admin {
                 <a class="hkof-btn secondary" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'resend_contract', $self_url)); ?>" onclick="return confirm('Send kontrakt (lejeaftale-PDF) til lejer nu?')">📄 Send kontrakt</a>
                 <a class="hkof-btn secondary" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'send_invoice_now', $self_url)); ?>" onclick="return confirm('Send faktura til lejer nu? Dette sætter samtidig status til Faktura sendt.')">🧾 Send faktura</a>
                 <a class="hkof-btn secondary" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'resend_final_confirmation', $self_url)); ?>" onclick="return confirm('Send bekræftelse på fuld betaling til lejer nu?')">✅ Send betalingsbekræftelse</a>
+                <a class="hkof-btn secondary" href="<?php echo esc_url(HKOF_Admin::action_url($id, 'resend_deposit_refund', $self_url)); ?>" onclick="return confirm('Send mail om at depositum er tilbagebetalt til lejer nu?')">💸 Send mail om depositum-tilbagebetaling</a>
             <?php endif; ?>
         </div>
 
