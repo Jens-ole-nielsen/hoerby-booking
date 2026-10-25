@@ -170,14 +170,28 @@ class HKOF_Admin {
                             <?php endif; ?>
                         </td>
                         <td><?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->created_at))); ?></td>
-                        <td>
-                            <a class="button button-small" href="?page=hkof-bookings&action=view&id=<?php echo $b->id; ?>">Åbn</a>
-                            <a class="button button-small" href="?page=hkof-bookings&action=edit&id=<?php echo $b->id; ?>">✏️ Rediger</a>
+                        <td style="white-space:nowrap">
+                            <button type="button" class="button button-small" data-hkof-panel="hkof-panel-<?php echo (int) $b->id; ?>">Funktioner</button>
+                            <a class="button button-small" href="?page=hkof-bookings&action=edit&id=<?php echo (int) $b->id; ?>">✏️ Rediger</a>
                         </td>
                     </tr>
                 <?php endforeach; endif; ?>
                 </tbody>
             </table>
+
+            <?php
+            self::render_reject_reason_script();
+            if ($bookings) {
+                $list_url = admin_url('admin.php?page=hkof-bookings' . ($filter && $filter !== 'all' ? '&status=' . rawurlencode($filter) : ''));
+                foreach ($bookings as $b) {
+                    self::render_actions_panel($b, [
+                        'redirect_to' => $list_url,
+                        'edit_url'    => admin_url('admin.php?page=hkof-bookings&action=edit&id=' . (int) $b->id),
+                        'show_pdf'    => true,
+                    ]);
+                }
+            }
+            ?>
         </div>
         <?php
     }
@@ -195,6 +209,113 @@ class HKOF_Admin {
         $url = admin_url('admin-post.php?action=hkof_booking_action&booking_id=' . $id . '&do=' . $action_name);
         if ($redirect_to) $url .= '&redirect_to=' . rawurlencode($redirect_to);
         return wp_nonce_url($url, 'hkof_booking_action_' . $id);
+    }
+
+    /**
+     * Status-afhængige handlingsknapper + manuelle mails.
+     * Bruges både på booking-detaljen og i "Funktioner"-panelet på listen.
+     *
+     * @param object $b Booking
+     * @param array  $args {
+     *   @type string $redirect_to  URL efter handling (valgfri)
+     *   @type string $edit_url     Link til redigering
+     *   @type string $btn          CSS-klasse til almindelige knapper (default: button)
+     *   @type string $btn_primary  CSS-klasse til primær knap
+     *   @type string $btn_danger   CSS-klasse til fare-handlinger
+     *   @type bool   $show_pdf     Vis links til eksisterende PDF'er
+     * }
+     */
+    public static function render_booking_actions($b, $args = []) {
+        $id = (int) $b->id;
+        $redirect = $args['redirect_to'] ?? null;
+        $edit_url = $args['edit_url'] ?? ('?page=hkof-bookings&action=edit&id=' . $id);
+        $btn = $args['btn'] ?? 'button';
+        $btn_primary = $args['btn_primary'] ?? 'button button-primary';
+        $btn_danger = $args['btn_danger'] ?? 'button';
+        $show_pdf = array_key_exists('show_pdf', $args) ? (bool) $args['show_pdf'] : true;
+        $u = function ($do) use ($id, $redirect) {
+            return self::action_url($id, $do, $redirect);
+        };
+        ?>
+        <div class="hkof-actions-panel__section">
+            <h3>Handlinger</h3>
+            <div class="hkof-actions-stack">
+                <a href="<?php echo esc_url($edit_url); ?>" class="<?php echo esc_attr($btn); ?>">✏️ Rediger booking</a>
+                <?php if ($b->status === 'pending'): ?>
+                    <a href="<?php echo esc_url($u('approve')); ?>" class="<?php echo esc_attr($btn_primary); ?>" onclick="return confirm('Godkend booking og send opkrævning af depositum til lejer?')">✅ Godkend &amp; send opkrævning</a>
+                    <a href="#" class="<?php echo esc_attr($btn); ?>" onclick="return hkofRejectWithReason(this, '<?php echo esc_js($u('reject')); ?>')">❌ Afvis</a>
+                <?php elseif ($b->status === 'approved'): ?>
+                    <a href="<?php echo esc_url($u('mark_deposit_paid')); ?>" class="<?php echo esc_attr($btn_primary); ?>" onclick="return confirm('Bekræft at depositum er modtaget – dette sender kontrakten til lejer.')">💰 Registrér depositum modtaget &amp; send kontrakt</a>
+                    <a href="<?php echo esc_url($u('resend_deposit_invoice')); ?>" class="<?php echo esc_attr($btn); ?>">📧 Gensend opkrævning af depositum</a>
+                <?php elseif ($b->status === 'deposit_paid'): ?>
+                    <a href="<?php echo esc_url($u('send_invoice_now')); ?>" class="<?php echo esc_attr($btn_primary); ?>" onclick="return confirm('Send faktura nu (før den automatiske dato)?')">🧾 Send faktura nu</a>
+                    <a href="<?php echo esc_url($u('resend_contract')); ?>" class="<?php echo esc_attr($btn); ?>">📧 Gensend kontrakt</a>
+                <?php elseif ($b->status === 'invoice_sent'): ?>
+                    <a href="<?php echo esc_url($u('mark_invoice_paid')); ?>" class="<?php echo esc_attr($btn_primary); ?>" onclick="return confirm('Bekræft at fakturaen er betalt? Lejeren får en bekræftelsesmail.')">✅ Registrér faktura betalt</a>
+                <?php elseif ($b->status === 'paid'): ?>
+                    <p class="description">Efter arrangementsdatoen skifter status automatisk til "Tilbagebetaling af depositum mangler" (eller "Afsluttet" hvis der ikke er depositum).</p>
+                <?php elseif ($b->status === 'refund_pending'): ?>
+                    <a href="<?php echo esc_url($u('mark_deposit_refunded')); ?>" class="<?php echo esc_attr($btn_primary); ?>" onclick="return confirm('Bekræft at depositum er tilbagebetalt til lejer? Der sendes en mail om tilbagebetalingen.')">💸 Depositum tilbagebetalt – send mail &amp; afslut</a>
+                    <a href="<?php echo esc_url($u('mark_deposit_retained')); ?>" class="<?php echo esc_attr($btn_danger); ?>" style="color:#9f1239" onclick="return confirm('Tilbagehold depositum fordi lokalet ikke er afleveret i tilfredsstillende stand?')">⛔ Behold depositum</a>
+                <?php elseif ($b->status === 'deposit_retained'): ?>
+                    <p class="description">Depositum er tilbageholdt. Du kan stadig vælge at tilbagebetale senere, hvis I aftaler det.</p>
+                    <a href="<?php echo esc_url($u('mark_deposit_refunded')); ?>" class="<?php echo esc_attr($btn); ?>" onclick="return confirm('Alligevel tilbagebetale depositum til lejer? Der sendes en mail, og bookingen markeres som afsluttet.')">💸 Tilbagebetal depositum alligevel</a>
+                <?php endif; ?>
+                <?php if (!in_array($b->status, ['rejected', 'cancelled', 'completed', 'deposit_retained'], true)): ?>
+                    <a href="<?php echo esc_url($u('cancel')); ?>" class="<?php echo esc_attr($btn_danger); ?>" style="color:#b91c1c" onclick="return confirm('Annullér denne booking helt?')">🚫 Annullér booking</a>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <div class="hkof-actions-panel__section">
+            <h3>📧 Send mails manuelt</h3>
+            <p class="description">Uafhængigt af status ovenfor - brug disse til at (gen)sende en bestemt mail, fx efter du selv har rettet status under "Rediger booking".</p>
+            <?php if (!$b->booking_ref): ?>
+                <p style="color:#b91c1c">Bookingen mangler et lejeaftalenummer. Gem en status forskellig fra "Afventer godkendelse" under "Rediger booking" for at få tildelt et nummer, før mails kan sendes.</p>
+            <?php else: ?>
+                <div class="hkof-actions-stack">
+                    <a href="<?php echo esc_url($u('resend_deposit_invoice')); ?>" class="<?php echo esc_attr($btn); ?>" onclick="return confirm('Send opkrævning af depositum til lejer nu?')">📧 Send opkrævning af depositum</a>
+                    <a href="<?php echo esc_url($u('resend_contract')); ?>" class="<?php echo esc_attr($btn); ?>" onclick="return confirm('Send kontrakt (lejeaftale-PDF) til lejer nu?')">📄 Send kontrakt</a>
+                    <a href="<?php echo esc_url($u('send_invoice_now')); ?>" class="<?php echo esc_attr($btn); ?>" onclick="return confirm('Send faktura til lejer nu? Dette sætter samtidig status til \'Faktura sendt\'.')">🧾 Send faktura</a>
+                    <a href="<?php echo esc_url($u('resend_final_confirmation')); ?>" class="<?php echo esc_attr($btn); ?>" onclick="return confirm('Send bekræftelse på fuld betaling til lejer nu?')">✅ Send betalingsbekræftelse</a>
+                    <a href="<?php echo esc_url($u('resend_deposit_refund')); ?>" class="<?php echo esc_attr($btn); ?>" onclick="return confirm('Send mail om at depositum er tilbagebetalt til lejer nu?')">💸 Send mail om depositum-tilbagebetaling</a>
+                </div>
+            <?php endif; ?>
+            <?php if ($show_pdf):
+                $contract_path = $b->booking_ref ? HKOF_PDF::find_existing_pdf('contract', $b) : '';
+                $invoice_path  = $b->booking_ref ? HKOF_PDF::find_existing_pdf('invoice', $b) : '';
+                if ($contract_path): ?>
+                    <p style="margin-top:14px"><a href="<?php echo esc_url(HKOF_PDF::download_url($id, 'contract')); ?>" target="_blank">📄 Se kontrakt-PDF</a></p>
+                <?php endif;
+                if ($invoice_path): ?>
+                    <p><a href="<?php echo esc_url(HKOF_PDF::download_url($id, 'invoice')); ?>" target="_blank">🧾 Se faktura-PDF</a></p>
+                <?php endif;
+            endif; ?>
+        </div>
+        <?php
+    }
+
+    /** Side-panel med handlinger til én booking (bruges fra listen) */
+    public static function render_actions_panel($b, $args = []) {
+        $id = (int) $b->id;
+        $panel_id = 'hkof-panel-' . $id;
+        $title = trim($b->first_name . ' ' . $b->last_name);
+        $period = date_i18n('d.m.Y', strtotime($b->check_in_date)) . ' – ' . date_i18n('d.m.Y', strtotime($b->check_out_date));
+        ?>
+        <div id="<?php echo esc_attr($panel_id); ?>" class="hkof-actions-panel" aria-hidden="true">
+            <div class="hkof-actions-panel__backdrop" data-hkof-panel-close></div>
+            <div class="hkof-actions-panel__sheet" role="dialog" aria-modal="true" aria-label="<?php echo esc_attr('Funktioner for ' . $title); ?>">
+                <div class="hkof-actions-panel__head">
+                    <div>
+                        <h2><?php echo esc_html($title); ?></h2>
+                        <p class="hkof-actions-panel__sub"><?php echo esc_html($period); ?> · <?php echo esc_html(self::label_text($b->status)); ?></p>
+                    </div>
+                    <button type="button" class="hkof-actions-panel__close" data-hkof-panel-close aria-label="Luk">&times;</button>
+                </div>
+                <?php self::render_booking_actions($b, $args); ?>
+            </div>
+        </div>
+        <?php
     }
 
     private static function render_detail($id) {
@@ -275,59 +396,11 @@ class HKOF_Admin {
                     </div>
                 </div>
 
-                <div style="flex:0 0 260px">
-                    <h2>Handlinger</h2>
-                    <div style="display:flex;flex-direction:column;gap:8px">
-                    <a href="?page=hkof-bookings&action=edit&id=<?php echo $id; ?>" class="button">✏️ Rediger booking</a>
-                    <?php if ($b->status === 'pending'): ?>
-                        <a href="<?php echo self::action_url($id, 'approve'); ?>" class="button button-primary" onclick="return confirm('Godkend booking og send opkrævning af depositum til lejer?')">✅ Godkend & send opkrævning</a>
-                        <a href="#" class="button" onclick="return hkofRejectWithReason(this, '<?php echo esc_js(self::action_url($id, 'reject')); ?>')">❌ Afvis</a>
-                    <?php elseif ($b->status === 'approved'): ?>
-                        <a href="<?php echo self::action_url($id, 'mark_deposit_paid'); ?>" class="button button-primary" onclick="return confirm('Bekræft at depositum er modtaget – dette sender kontrakten til lejer.')">💰 Registrér depositum modtaget & send kontrakt</a>
-                        <a href="<?php echo self::action_url($id, 'resend_deposit_invoice'); ?>" class="button">📧 Gensend opkrævning af depositum</a>
-                    <?php elseif ($b->status === 'deposit_paid'): ?>
-                        <a href="<?php echo self::action_url($id, 'send_invoice_now'); ?>" class="button button-primary" onclick="return confirm('Send faktura nu (før den automatiske dato)?')">🧾 Send faktura nu</a>
-                        <a href="<?php echo self::action_url($id, 'resend_contract'); ?>" class="button">📧 Gensend kontrakt</a>
-                    <?php elseif ($b->status === 'invoice_sent'): ?>
-                        <a href="<?php echo self::action_url($id, 'mark_invoice_paid'); ?>" class="button button-primary" onclick="return confirm('Bekræft at fakturaen er betalt? Lejeren får en bekræftelsesmail.')">✅ Registrér faktura betalt</a>
-                    <?php elseif ($b->status === 'paid'): ?>
-                        <p class="description">Efter arrangementsdatoen skifter status automatisk til "Tilbagebetaling af depositum mangler" (eller "Afsluttet" hvis der ikke er depositum).</p>
-                    <?php elseif ($b->status === 'refund_pending'): ?>
-                        <a href="<?php echo self::action_url($id, 'mark_deposit_refunded'); ?>" class="button button-primary" onclick="return confirm('Bekræft at depositum er tilbagebetalt til lejer? Der sendes en mail om tilbagebetalingen.')">💸 Depositum tilbagebetalt – send mail &amp; afslut</a>
-                        <a href="<?php echo self::action_url($id, 'mark_deposit_retained'); ?>" class="button" style="color:#9f1239" onclick="return confirm('Tilbagehold depositum fordi lokalet ikke er afleveret i tilfredsstillende stand?')">⛔ Behold depositum</a>
-                    <?php elseif ($b->status === 'deposit_retained'): ?>
-                        <p class="description">Depositum er tilbageholdt. Du kan stadig vælge at tilbagebetale senere, hvis I aftaler det.</p>
-                        <a href="<?php echo self::action_url($id, 'mark_deposit_refunded'); ?>" class="button" onclick="return confirm('Alligevel tilbagebetale depositum til lejer? Der sendes en mail, og bookingen markeres som afsluttet.')">💸 Tilbagebetal depositum alligevel</a>
-                    <?php endif; ?>
-                    <?php if (!in_array($b->status, ['rejected', 'cancelled', 'completed', 'deposit_retained'], true)): ?>
-                        <a href="<?php echo self::action_url($id, 'cancel'); ?>" class="button" style="color:#b91c1c" onclick="return confirm('Annullér denne booking helt?')">🚫 Annullér booking</a>
-                    <?php endif; ?>
-                    </div>
-
-                    <h2 style="margin-top:24px">📧 Send mails manuelt</h2>
-                    <p class="description" style="margin-top:0">Uafhængigt af status ovenfor - brug disse til at (gen)sende en bestemt mail, fx efter du selv har rettet status under "Rediger booking".</p>
-                    <?php if (!$b->booking_ref): ?>
-                        <p style="color:#b91c1c">Bookingen mangler et lejeaftalenummer. Gem en status forskellig fra "Afventer godkendelse" under "Rediger booking" for at få tildelt et nummer, før mails kan sendes.</p>
-                    <?php else: ?>
-                        <div style="display:flex;flex-direction:column;gap:8px">
-                            <a href="<?php echo self::action_url($id, 'resend_deposit_invoice'); ?>" class="button" onclick="return confirm('Send opkrævning af depositum til lejer nu?')">📧 Send opkrævning af depositum</a>
-                            <a href="<?php echo self::action_url($id, 'resend_contract'); ?>" class="button" onclick="return confirm('Send kontrakt (lejeaftale-PDF) til lejer nu?')">📄 Send kontrakt</a>
-                            <a href="<?php echo self::action_url($id, 'send_invoice_now'); ?>" class="button" onclick="return confirm('Send faktura til lejer nu? Dette sætter samtidig status til \'Faktura sendt\'.')">🧾 Send faktura <span style="color:#6b7280;font-size:11px">(sætter status til "Faktura sendt")</span></a>
-                            <a href="<?php echo self::action_url($id, 'resend_final_confirmation'); ?>" class="button" onclick="return confirm('Send bekræftelse på fuld betaling til lejer nu?')">✅ Send betalingsbekræftelse</a>
-                            <a href="<?php echo self::action_url($id, 'resend_deposit_refund'); ?>" class="button" onclick="return confirm('Send mail om at depositum er tilbagebetalt til lejer nu?')">💸 Send mail om depositum-tilbagebetaling</a>
-                        </div>
-                    <?php endif; ?>
-
-                    <?php
-                    $contract_path = $b->booking_ref ? HKOF_PDF::find_existing_pdf('contract', $b) : '';
-                    $invoice_path  = $b->booking_ref ? HKOF_PDF::find_existing_pdf('invoice', $b) : '';
-                    ?>
-                    <?php if ($contract_path): ?>
-                        <p style="margin-top:14px"><a href="<?php echo esc_url(HKOF_PDF::download_url($id, 'contract')); ?>" target="_blank">📄 Se kontrakt-PDF</a></p>
-                    <?php endif; ?>
-                    <?php if ($invoice_path): ?>
-                        <p><a href="<?php echo esc_url(HKOF_PDF::download_url($id, 'invoice')); ?>" target="_blank">🧾 Se faktura-PDF</a></p>
-                    <?php endif; ?>
+                <div style="flex:0 0 280px">
+                    <?php self::render_booking_actions($b, [
+                        'edit_url' => '?page=hkof-bookings&action=edit&id=' . $id,
+                        'show_pdf' => true,
+                    ]); ?>
                 </div>
             </div>
         </div>

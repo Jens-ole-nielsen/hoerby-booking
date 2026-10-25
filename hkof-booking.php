@@ -3,7 +3,7 @@
  * Plugin Name: Lokale Booking
  * Plugin URI: https://github.com/Jens-ole-nielsen/hoerby-booking
  * Description: Booking-system til udlejning af hele huset. Godkendelsesflow, automatisk kontrakt-PDF, manuel depositum-registrering, automatisk faktura 3 uger før arrangementet, samt Google Drive-integration til automatisk kontrakt-backup og planlagt databackup, redigerbare kontrakttekster og logo i alle mails.
- * Version: 1.13.2
+ * Version: 1.13.3
  * Author: Fair IT
  * Author URI: https://fair-it.dk
  * Text Domain: hkof-booking
@@ -12,7 +12,7 @@
 
 if (!defined('ABSPATH')) exit; // Ingen direkte adgang
 
-define('HKOF_BOOKING_VERSION', '1.13.2');
+define('HKOF_BOOKING_VERSION', '1.13.3');
 define('HKOF_BOOKING_FILE', __FILE__);
 define('HKOF_BOOKING_DIR', plugin_dir_path(__FILE__));
 define('HKOF_BOOKING_URL', plugin_dir_url(__FILE__));
@@ -107,7 +107,9 @@ add_action('wp_enqueue_scripts', function () {
         ]);
     }
     if ($has_fe_admin) {
+        wp_enqueue_style('hkof-booking-admin-style', HKOF_BOOKING_URL . 'assets/css/admin.css', [], HKOF_BOOKING_VERSION);
         wp_enqueue_script('hkof-admin-calendar-js', HKOF_BOOKING_URL . 'assets/js/admin-calendar.js', [], HKOF_BOOKING_VERSION, false);
+        wp_enqueue_script('hkof-admin-actions-panel', HKOF_BOOKING_URL . 'assets/js/admin-actions-panel.js', [], HKOF_BOOKING_VERSION, true);
         wp_localize_script('hkof-admin-calendar-js', 'HKOF_BOOKING', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce'   => wp_create_nonce('hkof_booking_nonce'),
@@ -121,6 +123,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
     // Kalender-forhåndsvisning på "Rediger booking"-siden genbruger den offentlige kalenders CSS-klasser.
     wp_enqueue_style('hkof-booking-style', HKOF_BOOKING_URL . 'assets/css/style.css', [], HKOF_BOOKING_VERSION);
     wp_enqueue_script('hkof-admin-calendar-js', HKOF_BOOKING_URL . 'assets/js/admin-calendar.js', [], HKOF_BOOKING_VERSION, false);
+    wp_enqueue_script('hkof-admin-actions-panel', HKOF_BOOKING_URL . 'assets/js/admin-actions-panel.js', [], HKOF_BOOKING_VERSION, true);
     wp_localize_script('hkof-admin-calendar-js', 'HKOF_BOOKING', [
         'ajaxUrl' => admin_url('admin-ajax.php'),
         'nonce'   => wp_create_nonce('hkof_booking_nonce'),
