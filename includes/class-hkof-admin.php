@@ -9,7 +9,7 @@ class HKOF_Admin {
         'deposit_paid'     => ['Depositum modtaget', '#0f766e'],
         'invoice_sent'     => ['Faktura sendt', '#7c3aed'],
         'paid'             => ['Betalt', '#15803d'],
-        'refund_pending'   => ['Tilbagebetaling af depositum mangler', '#c2410c'],
+        'refund_pending'   => ["Tilbagebetaling af\ndepositum mangler", '#c2410c'],
         'deposit_retained' => ['Depositum tilbageholdt', '#9f1239'],
         'completed'        => ['Afsluttet', '#4b5563'],
         'rejected'         => ['Afvist', '#b91c1c'],
@@ -54,9 +54,21 @@ class HKOF_Admin {
         return self::$status_labels;
     }
 
+    /** HTML til status-badge (understøtter linjeskift via \\n i label-teksten) */
     public static function label($status) {
         $l = self::$status_labels[$status] ?? [$status, '#6b7280'];
-        return sprintf('<span style="background:%s;color:#fff;padding:3px 9px;border-radius:12px;font-size:12px;font-weight:600">%s</span>', $l[1], esc_html($l[0]));
+        $text = nl2br(esc_html($l[0]), false);
+        return sprintf(
+            '<span class="hkof-status-badge" style="display:inline-block;background:%s;color:#fff;padding:5px 10px;border-radius:8px;font-size:12px;font-weight:600;line-height:1.3;text-align:center;vertical-align:middle">%s</span>',
+            esc_attr($l[1]),
+            $text
+        );
+    }
+
+    /** Ren tekst uden HTML (til title/confirm o.l.) */
+    public static function label_text($status) {
+        $l = self::$status_labels[$status] ?? [$status, '#6b7280'];
+        return str_replace("\n", ' ', $l[0]);
     }
 
     public static function render_reject_reason_script() {
@@ -125,7 +137,7 @@ class HKOF_Admin {
             <ul class="subsubsub">
                 <li><a href="?page=hkof-bookings&status=all" class="<?php echo $filter==='all'?'current':''; ?>">Alle <span class="count">(<?php echo $total; ?>)</span></a> |</li>
                 <?php foreach (self::$status_labels as $key => $l): $c = $counts[$key] ?? 0; ?>
-                <li><a href="?page=hkof-bookings&status=<?php echo $key; ?>" class="<?php echo $filter===$key?'current':''; ?>"><?php echo esc_html($l[0]); ?> <span class="count">(<?php echo $c; ?>)</span></a> |</li>
+                <li><a href="?page=hkof-bookings&status=<?php echo $key; ?>" class="<?php echo $filter===$key?'current':''; ?>"><?php echo esc_html(self::label_text($key)); ?> <span class="count">(<?php echo $c; ?>)</span></a> |</li>
                 <?php endforeach; ?>
             </ul>
 
@@ -423,7 +435,7 @@ class HKOF_Admin {
                         <td>
                             <select name="status">
                                 <?php foreach (self::status_labels() as $key => $l): ?>
-                                    <option value="<?php echo esc_attr($key); ?>" <?php selected($b->status, $key); ?>><?php echo esc_html($l[0]); ?></option>
+                                    <option value="<?php echo esc_attr($key); ?>" <?php selected($b->status, $key); ?>><?php echo esc_html(self::label_text($key)); ?></option>
                                 <?php endforeach; ?>
                             </select>
                             <p class="description">Skifter KUN status i systemet - sender ingen mails og rører ikke datoer/beløb. Har bookingen intet lejeaftalenummer endnu, tildeles ét automatisk når du gemmer en status der ikke er "Afventer godkendelse". Brug knapperne under "📧 Send mails manuelt" på bookingens side bagefter, hvis lejer/foreningen skal have besked.</p>
