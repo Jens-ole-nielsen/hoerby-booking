@@ -119,7 +119,7 @@ class HKOF_Frontend_Admin {
         <ul class="hkof-tabs">
             <li><a href="<?php echo esc_url(add_query_arg('hkof_status', 'all', $base)); ?>" class="<?php echo $filter === 'all' ? 'current' : ''; ?>">Alle (<?php echo (int) $total; ?>)</a></li>
             <?php foreach (HKOF_Admin::status_labels() as $key => $l): $c = $counts[$key] ?? 0; ?>
-                <li><a href="<?php echo esc_url(add_query_arg('hkof_status', $key, $base)); ?>" class="<?php echo $filter === $key ? 'current' : ''; ?>"><?php echo esc_html($l[0]); ?> (<?php echo (int) $c; ?>)</a></li>
+                <li><a href="<?php echo esc_url(add_query_arg('hkof_status', $key, $base)); ?>" class="<?php echo $filter === $key ? 'current' : ''; ?>"><?php echo esc_html(HKOF_Admin::label_text($key)); ?> (<?php echo (int) $c; ?>)</a></li>
             <?php endforeach; ?>
         </ul>
 
@@ -411,7 +411,7 @@ class HKOF_Frontend_Admin {
                     <td>
                         <select name="status">
                             <?php foreach (HKOF_Admin::status_labels() as $key => $l): ?>
-                                <option value="<?php echo esc_attr($key); ?>" <?php selected($b->status, $key); ?>><?php echo esc_html($l[0]); ?></option>
+                                <option value="<?php echo esc_attr($key); ?>" <?php selected($b->status, $key); ?>><?php echo esc_html(HKOF_Admin::label_text($key)); ?></option>
                             <?php endforeach; ?>
                         </select>
                         <p class="hkof-hint">Skifter KUN status i systemet - sender ingen mails og rører ikke datoer/beløb. Har bookingen intet lejeaftalenummer endnu, tildeles ét automatisk når du gemmer en status der ikke er "Afventer godkendelse". Brug "Send mails manuelt" på bookingens side bagefter, hvis lejer/foreningen skal have besked.</p>
