@@ -1,15 +1,16 @@
-.hkof-booking-widget{max-width:720px;margin:0 auto;font-family:inherit}
-.hkof-legend{display:flex;gap:18px;margin-bottom:12px;font-size:13px;align-items:center}
-.hkof-dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.hkof-booking-widget{max-width:780px;margin:0 auto;font-family:inherit;font-size:16px;line-height:1.5;color:#1f2937}
+.hkof-legend{display:flex;gap:16px 22px;margin-bottom:16px;font-size:16px;align-items:center;flex-wrap:wrap;line-height:1.45}
+.hkof-dot{display:inline-block;width:14px;height:14px;border-radius:50%;margin-right:6px;vertical-align:middle;flex-shrink:0}
 .hkof-free{background:#22c55e}
 .hkof-pending{background:#f59e0b}
 .hkof-booked{background:#ef4444}
-.hkof-calendar{border:1px solid #e2e2e2;border-radius:8px;padding:14px;margin-bottom:20px}
-.hkof-cal-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-weight:600}
-.hkof-cal-nav button{background:none;border:1px solid #ccc;border-radius:6px;padding:4px 12px;cursor:pointer}
-.hkof-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.hkof-cal-daylabel{text-align:center;font-size:11px;font-weight:700;color:#888;padding-bottom:4px}
-.hkof-cal-day{position:relative;z-index:0;overflow:hidden;text-align:center;padding:9px 0;border-radius:6px;cursor:pointer;font-size:13px;border:1px solid transparent}
+.hkof-calendar{border:1px solid #e2e2e2;border-radius:10px;padding:18px;margin-bottom:24px}
+.hkof-cal-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-weight:600;font-size:1.05em}
+.hkof-cal-nav button{background:#fff;border:1px solid #ccc;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:16px;line-height:1.2;min-height:44px;min-width:44px}
+.hkof-cal-nav button:hover{background:#f8fafc;border-color:#94a3b8}
+.hkof-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.hkof-cal-daylabel{text-align:center;font-size:14px;font-weight:700;color:#475569;padding-bottom:6px;letter-spacing:.02em}
+.hkof-cal-day{position:relative;z-index:0;overflow:hidden;text-align:center;padding:12px 0;border-radius:8px;cursor:pointer;font-size:16px;border:1px solid transparent;min-height:44px;display:flex;align-items:center;justify-content:center}
 .hkof-cal-day.hkof-empty{cursor:default}
 .hkof-cal-day.free{background:#f0fdf4}
 .hkof-cal-day.pending{background:#fef3c7;cursor:not-allowed;color:#92400e}
@@ -51,17 +52,28 @@
 .hkof-cal-day.hkof-range-end{color:#1e3a8a;font-weight:700}
 .hkof-cal-day.hkof-range-middle{background:#bfdbfe !important}
 .hkof-cal-day.hkof-range-single{background:#2563eb !important;color:#fff;font-weight:700}
-.hkof-form{border:1px solid #e2e2e2;border-radius:8px;padding:18px}
-.hkof-selected-range{margin-top:0;font-size:14px}
-.hkof-row{display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap}
-.hkof-field{flex:1;min-width:200px;display:flex;flex-direction:column;gap:4px}
-.hkof-field label{font-size:12px;font-weight:600;color:#555}
-.hkof-field input,.hkof-field select{padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px}
-.hkof-note{font-size:12px;color:#777}
-.hkof-submit-btn{background:#2563eb;color:#fff;border:none;padding:11px 22px;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer}
+.hkof-form{border:1px solid #e2e2e2;border-radius:10px;padding:22px 24px}
+.hkof-selected-range{margin-top:0;margin-bottom:16px;font-size:17px;line-height:1.45}
+.hkof-row{display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.hkof-field{flex:1;min-width:200px;display:flex;flex-direction:column;gap:6px}
+.hkof-field label{font-size:16px;font-weight:600;color:#1f2937;line-height:1.35}
+.hkof-field input,.hkof-field select{padding:12px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:16px;line-height:1.4;min-height:48px;background:#fff;color:#111827;width:100%;box-sizing:border-box}
+.hkof-field input:focus,.hkof-field select:focus{outline:2px solid #2563eb;outline-offset:1px;border-color:#2563eb}
+.hkof-field input::placeholder{color:#94a3b8}
+.hkof-note{font-size:16px;color:#374151;line-height:1.5;margin:16px 0}
+.hkof-submit-btn{background:#2563eb;color:#fff;border:none;padding:14px 28px;border-radius:8px;font-size:18px;font-weight:600;cursor:pointer;min-height:52px;line-height:1.3}
 .hkof-submit-btn:hover{background:#1d4ed8}
 .hkof-submit-btn:disabled{opacity:.6;cursor:not-allowed}
-#hkof-form-message{margin-top:12px;font-size:14px}
+#hkof-form-message{margin-top:14px;font-size:16px;line-height:1.45}
 #hkof-form-message.success{color:#15803d}
 #hkof-form-message.error{color:#b91c1c}
-.hkof-price-estimate{font-size:13px;background:#f8fafc;border:1px solid #e2e2e2;border-radius:6px;padding:8px 10px;line-height:1.5}
+.hkof-price-estimate{font-size:16px;background:#f8fafc;border:1px solid #e2e2e2;border-radius:8px;padding:12px 14px;line-height:1.55;min-height:48px;display:flex;align-items:center;box-sizing:border-box}
+
+@media (max-width:560px){
+  .hkof-booking-widget{font-size:16px}
+  .hkof-calendar{padding:14px}
+  .hkof-cal-day{padding:10px 0;font-size:15px;min-height:42px}
+  .hkof-form{padding:18px 16px}
+  .hkof-legend{font-size:15px;gap:12px 16px}
+}
+
