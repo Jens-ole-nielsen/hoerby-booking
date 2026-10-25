@@ -215,6 +215,26 @@ class HKOF_Mailer {
                     . "Vi glæder os til at se jer!\n\n"
                     . "MVH [afsender_navn]",
             ],
+            'deposit_refunded' => [
+                'label' => 'Depositum tilbagebetalt (til gæst)',
+                'to'    => 'gæsten',
+                'tokens' => [
+                    '[fornavn]' => 'Lejers fornavn',
+                    '[depositum]' => 'Depositumbeløb',
+                    '[lejeaftale_nr]' => 'Lejeaftalens nummer',
+                    '[periode]' => 'Ankomst - afgang',
+                    '[forening_navn]' => 'Foreningens navn',
+                    '[afsender_navn]' => 'Afsendernavn i mails',
+                    '[udlejning_navn]' => 'Kontaktperson for udlejning',
+                ],
+                'default_subject' => 'Depositum tilbagebetalt – lejeaftale nr. [lejeaftale_nr]',
+                'default_body' =>
+                    "Hej [fornavn],\n\n"
+                    . "Vi bekræfter at depositum på kr. [depositum] for lejeaftale nr. [lejeaftale_nr] ([periode]) er tilbagebetalt.\n\n"
+                    . "Tak for lejen af huset – vi håber I havde en god oplevelse.\n\n"
+                    . "MVH [afsender_navn]\n"
+                    . "[udlejning_navn]",
+            ],
         ];
     }
 
@@ -354,5 +374,15 @@ class HKOF_Mailer {
         $r = self::render('final_payment_confirmation', $tokens);
         if (!$r) return;
         self::dispatch($booking->email, $r['subject'], $r['body']);
+    }
+
+    /** Sendes til lejer når depositum er tilbagebetalt efter arrangementet */
+    public static function send_deposit_refunded($booking) {
+        $tokens = self::tokens($booking, [
+            '[depositum]' => number_format((float) $booking->deposit_amount, 2, ',', '.'),
+        ]);
+        $r = self::render('deposit_refunded', $tokens);
+        if (!$r) return false;
+        return (bool) self::dispatch($booking->email, $r['subject'], $r['body']);
     }
 }

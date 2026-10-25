@@ -3,8 +3,11 @@ if (!defined('ABSPATH')) exit;
 
 /**
  * Database-lag for bookinger.
- * Status-flow: pending -> approved -> deposit_paid -> invoice_sent -> paid -> completed
+ * Status-flow: pending -> approved -> deposit_paid -> invoice_sent -> paid
+ *              -> refund_pending -> completed  (eller -> deposit_retained)
  *              (eller: pending -> rejected / enhver status -> cancelled)
+ * Efter arrangementsdatoen (check_out_date passeret) skifter aktive bookinger
+ * med depositum automatisk til refund_pending. Uden depositum -> completed.
  */
 class HKOF_DB {
 
@@ -21,7 +24,7 @@ class HKOF_DB {
         $sql = "CREATE TABLE $table (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             booking_ref VARCHAR(30) DEFAULT NULL,
-            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            status VARCHAR(32) NOT NULL DEFAULT 'pending',
             first_name VARCHAR(100) NOT NULL,
             last_name VARCHAR(100) NOT NULL,
             address VARCHAR(200) NOT NULL,
@@ -43,6 +46,8 @@ class HKOF_DB {
             invoice_paid_at DATETIME DEFAULT NULL,
             completed_at DATETIME DEFAULT NULL,
             deposit_invoice_sent_at DATETIME DEFAULT NULL,
+            deposit_refunded_at DATETIME DEFAULT NULL,
+            deposit_retained_at DATETIME DEFAULT NULL,
             rejected_reason TEXT DEFAULT NULL,
             admin_notes TEXT DEFAULT NULL,
             gdrive_contract_synced_at DATETIME DEFAULT NULL,
@@ -351,6 +356,23 @@ class HKOF_DB {
              AND check_in_date <= %s",
             $today,
             $target_date
+        ));
+    }
+
+    /**
+     * Bookinger hvor arrangementet er slut (check_out_date passeret), og som
+     * stadig står i en aktiv "efter depositum"-status. Bruges til at skifte til
+     * refund_pending / completed.
+     */
+    public static function get_bookings_past_event_awaiting_close() {
+        global $wpdb;
+        $table = self::table();
+        $today = current_time('Y-m-d');
+        return $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM $table
+             WHERE check_out_date < %s
+             AND status IN ('deposit_paid', 'invoice_sent', 'paid')",
+            $today
         ));
     }
 }

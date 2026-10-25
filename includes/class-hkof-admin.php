@@ -4,14 +4,16 @@ if (!defined('ABSPATH')) exit;
 class HKOF_Admin {
 
     private static $status_labels = [
-        'pending'      => ['Afventer godkendelse', '#b45309'],
-        'approved'     => ['Godkendt – afventer depositum', '#1d4ed8'],
-        'deposit_paid' => ['Depositum modtaget', '#0f766e'],
-        'invoice_sent' => ['Faktura sendt', '#7c3aed'],
-        'paid'         => ['Betalt', '#15803d'],
-        'completed'    => ['Afsluttet', '#4b5563'],
-        'rejected'     => ['Afvist', '#b91c1c'],
-        'cancelled'    => ['Annulleret', '#6b7280'],
+        'pending'          => ['Afventer godkendelse', '#b45309'],
+        'approved'         => ['Godkendt – afventer depositum', '#1d4ed8'],
+        'deposit_paid'     => ['Depositum modtaget', '#0f766e'],
+        'invoice_sent'     => ['Faktura sendt', '#7c3aed'],
+        'paid'             => ['Betalt', '#15803d'],
+        'refund_pending'   => ['Tilbagebetaling af depositum mangler', '#c2410c'],
+        'deposit_retained' => ['Depositum tilbageholdt', '#9f1239'],
+        'completed'        => ['Afsluttet', '#4b5563'],
+        'rejected'         => ['Afvist', '#b91c1c'],
+        'cancelled'        => ['Annulleret', '#6b7280'],
     ];
 
     public static function init() {
@@ -239,6 +241,9 @@ class HKOF_Admin {
                     <?php if ($b->deposit_paid_at): ?><p>💰 Depositum modtaget: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->deposit_paid_at))); ?></p><?php endif; ?>
                     <?php if ($b->invoice_sent_at): ?><p>🧾 Faktura sendt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->invoice_sent_at))); ?></p><?php endif; ?>
                     <?php if ($b->invoice_paid_at): ?><p>✅ Faktura betalt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->invoice_paid_at))); ?></p><?php endif; ?>
+                    <?php if (!empty($b->deposit_refunded_at)): ?><p>💸 Depositum tilbagebetalt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->deposit_refunded_at))); ?></p><?php endif; ?>
+                    <?php if (!empty($b->deposit_retained_at)): ?><p>⛔ Depositum tilbageholdt: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->deposit_retained_at))); ?></p><?php endif; ?>
+                    <?php if (!empty($b->completed_at)): ?><p>🏁 Afsluttet: <?php echo esc_html(date_i18n('d.m.Y H:i', strtotime($b->completed_at))); ?></p><?php endif; ?>
                     <?php if ($b->status === 'rejected'): ?>
                         <p>❌ Afvist<?php if (!empty($b->rejected_reason)): ?> - begrundelse (sendt til lejer): <em><?php echo esc_html($b->rejected_reason); ?></em><?php else: ?> (ingen begrundelse angivet)<?php endif; ?></p>
                     <?php endif; ?>
@@ -274,9 +279,15 @@ class HKOF_Admin {
                     <?php elseif ($b->status === 'invoice_sent'): ?>
                         <a href="<?php echo self::action_url($id, 'mark_invoice_paid'); ?>" class="button button-primary" onclick="return confirm('Bekræft at fakturaen er betalt? Lejeren får en bekræftelsesmail.')">✅ Registrér faktura betalt</a>
                     <?php elseif ($b->status === 'paid'): ?>
-                        <a href="<?php echo self::action_url($id, 'mark_completed'); ?>" class="button">🏁 Markér som afsluttet</a>
+                        <p class="description">Efter arrangementsdatoen skifter status automatisk til "Tilbagebetaling af depositum mangler" (eller "Afsluttet" hvis der ikke er depositum).</p>
+                    <?php elseif ($b->status === 'refund_pending'): ?>
+                        <a href="<?php echo self::action_url($id, 'mark_deposit_refunded'); ?>" class="button button-primary" onclick="return confirm('Bekræft at depositum er tilbagebetalt til lejer? Der sendes en mail om tilbagebetalingen.')">💸 Depositum tilbagebetalt – send mail &amp; afslut</a>
+                        <a href="<?php echo self::action_url($id, 'mark_deposit_retained'); ?>" class="button" style="color:#9f1239" onclick="return confirm('Tilbagehold depositum fordi lokalet ikke er afleveret i tilfredsstillende stand?')">⛔ Behold depositum</a>
+                    <?php elseif ($b->status === 'deposit_retained'): ?>
+                        <p class="description">Depositum er tilbageholdt. Du kan stadig vælge at tilbagebetale senere, hvis I aftaler det.</p>
+                        <a href="<?php echo self::action_url($id, 'mark_deposit_refunded'); ?>" class="button" onclick="return confirm('Alligevel tilbagebetale depositum til lejer? Der sendes en mail, og bookingen markeres som afsluttet.')">💸 Tilbagebetal depositum alligevel</a>
                     <?php endif; ?>
-                    <?php if (!in_array($b->status, ['rejected', 'cancelled', 'completed'])): ?>
+                    <?php if (!in_array($b->status, ['rejected', 'cancelled', 'completed', 'deposit_retained'], true)): ?>
                         <a href="<?php echo self::action_url($id, 'cancel'); ?>" class="button" style="color:#b91c1c" onclick="return confirm('Annullér denne booking helt?')">🚫 Annullér booking</a>
                     <?php endif; ?>
                     </div>
@@ -291,6 +302,7 @@ class HKOF_Admin {
                             <a href="<?php echo self::action_url($id, 'resend_contract'); ?>" class="button" onclick="return confirm('Send kontrakt (lejeaftale-PDF) til lejer nu?')">📄 Send kontrakt</a>
                             <a href="<?php echo self::action_url($id, 'send_invoice_now'); ?>" class="button" onclick="return confirm('Send faktura til lejer nu? Dette sætter samtidig status til \'Faktura sendt\'.')">🧾 Send faktura <span style="color:#6b7280;font-size:11px">(sætter status til "Faktura sendt")</span></a>
                             <a href="<?php echo self::action_url($id, 'resend_final_confirmation'); ?>" class="button" onclick="return confirm('Send bekræftelse på fuld betaling til lejer nu?')">✅ Send betalingsbekræftelse</a>
+                            <a href="<?php echo self::action_url($id, 'resend_deposit_refund'); ?>" class="button" onclick="return confirm('Send mail om at depositum er tilbagebetalt til lejer nu?')">💸 Send mail om depositum-tilbagebetaling</a>
                         </div>
                     <?php endif; ?>
 
@@ -670,6 +682,32 @@ class HKOF_Admin {
 
             case 'mark_completed':
                 HKOF_DB::update($id, ['status' => 'completed', 'completed_at' => current_time('mysql')]);
+                break;
+
+            case 'mark_deposit_refunded':
+                $sent = HKOF_Mailer::send_deposit_refunded($booking);
+                if ($sent) {
+                    HKOF_DB::update($id, [
+                        'status'              => 'completed',
+                        'deposit_refunded_at' => current_time('mysql'),
+                        'completed_at'        => current_time('mysql'),
+                    ]);
+                } else {
+                    $mail_error = self::mail_not_sent_message('Mail om tilbagebetaling blev ikke sendt, og status er uændret.');
+                }
+                break;
+
+            case 'mark_deposit_retained':
+                HKOF_DB::update($id, [
+                    'status'              => 'deposit_retained',
+                    'deposit_retained_at' => current_time('mysql'),
+                ]);
+                break;
+
+            case 'resend_deposit_refund':
+                if ($booking->booking_ref) {
+                    HKOF_Mailer::send_deposit_refunded($booking);
+                }
                 break;
 
             case 'cancel':
