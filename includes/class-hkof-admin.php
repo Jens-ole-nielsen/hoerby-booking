@@ -114,6 +114,13 @@ class HKOF_Admin {
         <div class="wrap hkof-wrap">
             <h1>Lokale Booking – Bookinger</h1>
 
+            <?php if (!empty($_GET['hkof_deleted'])): ?>
+                <div class="notice notice-success is-dismissible"><p>Bookingen er slettet permanent.</p></div>
+            <?php endif; ?>
+            <?php if (!empty($_GET['hkof_done'])): ?>
+                <div class="notice notice-success is-dismissible"><p>Handlingen blev udført.</p></div>
+            <?php endif; ?>
+
             <div style="padding:12px 16px;border-radius:8px;margin-bottom:16px;border:1px solid #c3d9ec;background:#f0f6fc">
                 <p style="margin:0 0 6px"><strong>📌 Shortcodes til jeres side</strong></p>
                 <p style="margin:0 0 4px">Booking-kalender/formular (det gæster ser): <code style="user-select:all;background:#fff;padding:2px 8px;border:1px solid #ddd;border-radius:4px">[hkof_booking]</code> – sæt ind på jeres almindelige booking-side.</p>
