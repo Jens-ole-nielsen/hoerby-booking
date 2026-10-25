@@ -63,6 +63,8 @@ class HKOF_Frontend_Admin {
             .hkof-fe-admin .hkof-inline-btn{display:inline-block;padding:8px 14px;border-radius:8px;background:#f3f4f6;color:#374151;text-decoration:none;font-size:.95em;font-weight:600;border:1px solid #d1d5db;cursor:pointer;margin-left:8px}
             .hkof-fe-admin .hkof-error-box{padding:12px 16px;border-radius:8px;margin-bottom:16px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:1em}
             .hkof-fe-admin label{font-size:16px;font-weight:600;color:#1f2937}
+            .hkof-fe-admin .hkof-actions-stack .hkof-btn{display:block;width:100%;text-align:center;margin:0;box-sizing:border-box}
+            .hkof-fe-admin button.hkof-btn{font:inherit}
         </style>
         <?php
 
@@ -148,12 +150,29 @@ class HKOF_Frontend_Admin {
                             <a href="<?php echo esc_url($note_url); ?>" style="color:#9ca3af">+ tilføj note</a>
                         <?php endif; ?>
                     </td>
-                    <td><a class="hkof-btn secondary" href="<?php echo esc_url($view_url); ?>">Åbn</a> <a class="hkof-inline-btn" href="<?php echo esc_url(add_query_arg('hkof_edit', '1', $view_url)); ?>">Rediger</a></td>
+                    <td style="white-space:nowrap">
+                        <button type="button" class="hkof-inline-btn" style="margin-left:0" data-hkof-panel="hkof-panel-<?php echo (int) $b->id; ?>">Funktioner</button>
+                        <a class="hkof-inline-btn" href="<?php echo esc_url(add_query_arg('hkof_edit', '1', $view_url)); ?>">✏️ Rediger</a>
+                    </td>
                 </tr>
             <?php endforeach; endif; ?>
             </tbody>
         </table>
         <?php
+        HKOF_Admin::render_reject_reason_script();
+        if ($bookings) {
+            foreach ($bookings as $b) {
+                $view_url = add_query_arg('hkof_view', $b->id, $base);
+                HKOF_Admin::render_actions_panel($b, [
+                    'redirect_to' => $base,
+                    'edit_url'    => add_query_arg('hkof_edit', '1', $view_url),
+                    'btn'         => 'hkof-btn secondary',
+                    'btn_primary' => 'hkof-btn',
+                    'btn_danger'  => 'hkof-btn danger',
+                    'show_pdf'    => true,
+                ]);
+            }
+        }
     }
 
     private static function render_detail($id) {

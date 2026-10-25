@@ -1,2 +1,26 @@
 .hkof-wrap .form-table th{width:260px}
 .hkof-wrap table.wp-list-table td,.hkof-wrap table.wp-list-table th{vertical-align:middle}
+
+/* Funktioner-panel (side drawer) */
+html.hkof-panel-open{overflow:hidden}
+.hkof-actions-panel{position:fixed;inset:0;z-index:100000;display:none}
+.hkof-actions-panel.is-open{display:block}
+.hkof-actions-panel__backdrop{position:absolute;inset:0;background:rgba(15,23,42,.45)}
+.hkof-actions-panel__sheet{
+  position:absolute;top:0;right:0;height:100%;width:min(360px,94vw);
+  background:#f6f7f7;box-shadow:-8px 0 28px rgba(0,0,0,.18);
+  overflow:auto;padding:20px 18px 28px;box-sizing:border-box;
+}
+.hkof-actions-panel__head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 0 14px}
+.hkof-actions-panel__head h2{margin:0;font-size:1.15em;line-height:1.3}
+.hkof-actions-panel__sub{margin:4px 0 0;color:#646970;font-size:12px}
+.hkof-actions-panel__close{
+  border:0;background:#fff;border:1px solid #c3c4c7;border-radius:4px;
+  width:36px;height:36px;font-size:22px;line-height:1;cursor:pointer;flex-shrink:0;color:#1d2327;
+}
+.hkof-actions-panel__close:hover{background:#f0f0f1}
+.hkof-actions-panel__section{margin:0 0 18px}
+.hkof-actions-panel__section h3{margin:0 0 10px;font-size:1em}
+.hkof-actions-panel .hkof-actions-stack{display:flex;flex-direction:column;gap:8px}
+.hkof-actions-panel .hkof-actions-stack .button{text-align:center;justify-content:center}
+.hkof-actions-panel .description{margin-top:0}
