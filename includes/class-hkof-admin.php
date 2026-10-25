@@ -278,7 +278,7 @@ class HKOF_Admin {
                     ? 'SLET denne booking permanent? Dette kan ikke fortrydes – bookingen fjernes helt fra systemet.'
                     : "ADVARSEL: Denne booking er stadig aktiv.\n\nLejeren får INGEN mail, hvis du sletter den nu.\n\nAnbefaling: Vælg i stedet \"Annullér booking\" først, så lejeren får besked om aflysningen. Herefter kan du slette den, hvis du vil fjerne den helt.\n\nVil du alligevel slette permanent uden at varsle lejeren?";
                 ?>
-                <a href="<?php echo esc_url($u('delete')); ?>" class="<?php echo esc_attr($btn_danger); ?>" style="color:#b91c1c;margin-top:4px" onclick="return confirm(<?php echo esc_js($delete_msg); ?>)">🗑️ Slet booking permanent</a>
+                <a href="<?php echo esc_url($u('delete')); ?>" class="<?php echo esc_attr($btn_danger); ?>" style="color:#b91c1c;margin-top:4px" onclick="return confirm('<?php echo esc_js($delete_msg); ?>')">🗑️ Slet booking permanent</a>
             </div>
         </div>
 
@@ -812,6 +812,11 @@ class HKOF_Admin {
 
             case 'cancel':
                 HKOF_DB::update($id, ['status' => 'cancelled']);
+                $booking = HKOF_DB::get($id);
+                $sent = HKOF_Mailer::send_cancellation($booking);
+                if (!$sent) {
+                    $mail_error = self::mail_not_sent_message('Bookingen er annulleret, men mailen til lejer blev ikke sendt.');
+                }
                 break;
 
             case 'delete':
