@@ -38,29 +38,31 @@ class HKOF_Frontend_Admin {
         ?>
         <div class="hkof-fe-admin">
         <style>
-            .hkof-fe-admin{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:#1f2937;max-width:960px}
+            .hkof-fe-admin{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:#1f2937;max-width:960px;font-size:16px;line-height:1.5}
             .hkof-fe-admin *{box-sizing:border-box}
-            .hkof-fe-admin h2{font-size:1.4em;margin:0 0 .6em;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-            .hkof-fe-admin h3{font-size:1.1em;margin:0 0 .6em}
-            .hkof-fe-admin table{width:100%;border-collapse:collapse;margin:0 0 1.2em;font-size:.94em}
-            .hkof-fe-admin th,.hkof-fe-admin td{text-align:left;padding:9px 10px;border-bottom:1px solid #e5e7eb;vertical-align:top}
+            .hkof-fe-admin h2{font-size:1.45em;margin:0 0 .65em;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+            .hkof-fe-admin h3{font-size:1.15em;margin:0 0 .65em}
+            .hkof-fe-admin table{width:100%;border-collapse:collapse;margin:0 0 1.2em;font-size:1em}
+            .hkof-fe-admin th,.hkof-fe-admin td{text-align:left;padding:12px 12px;border-bottom:1px solid #e5e7eb;vertical-align:top}
             .hkof-fe-admin th{background:#f9fafb;font-weight:600}
-            .hkof-fe-admin .hkof-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.78em;font-weight:600;color:#fff;white-space:nowrap}
-            .hkof-fe-admin .hkof-tabs{list-style:none;display:flex;flex-wrap:wrap;gap:6px;padding:0;margin:0 0 18px}
-            .hkof-fe-admin .hkof-tabs a{display:inline-block;padding:6px 12px;border-radius:6px;background:#f3f4f6;color:#374151;text-decoration:none;font-size:.88em}
+            .hkof-fe-admin .hkof-badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:.85em;font-weight:600;color:#fff;white-space:nowrap}
+            .hkof-fe-admin .hkof-tabs{list-style:none;display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0 0 18px}
+            .hkof-fe-admin .hkof-tabs a{display:inline-block;padding:9px 14px;border-radius:8px;background:#f3f4f6;color:#374151;text-decoration:none;font-size:.95em}
             .hkof-fe-admin .hkof-tabs a.current{background:#1d4ed8;color:#fff}
-            .hkof-fe-admin .hkof-btn{display:inline-block;padding:9px 15px;border-radius:6px;background:#1d4ed8;color:#fff!important;text-decoration:none;font-size:.9em;font-weight:600;border:none;cursor:pointer;margin:0 6px 8px 0}
+            .hkof-fe-admin .hkof-btn{display:inline-block;padding:11px 18px;border-radius:8px;background:#1d4ed8;color:#fff!important;text-decoration:none;font-size:1em;font-weight:600;border:none;cursor:pointer;margin:0 6px 8px 0;min-height:44px}
             .hkof-fe-admin .hkof-btn.secondary{background:#f3f4f6;color:#374151!important}
             .hkof-fe-admin .hkof-btn.danger{background:#fef2f2;color:#b91c1c!important}
-            .hkof-fe-admin .hkof-box{border:1px solid #e5e7eb;border-radius:10px;padding:18px 20px;margin-bottom:18px;background:#fff}
-            .hkof-fe-admin .hkof-notice{padding:10px 14px;border-radius:8px;margin-bottom:16px;background:#dcfce7;border:1px solid #86efac;color:#14532d}
-            .hkof-fe-admin textarea,.hkof-fe-admin input[type=text],.hkof-fe-admin input[type=email],.hkof-fe-admin input[type=password],.hkof-fe-admin input[type=date],.hkof-fe-admin input[type=number],.hkof-fe-admin select{width:100%;padding:9px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:.92em;font-family:inherit;background:#fff}
-            .hkof-fe-admin .hkof-login-row{margin-bottom:12px}
-            .hkof-fe-admin .hkof-hint{font-size:.85em;color:#6b7280;margin-top:-4px}
+            .hkof-fe-admin .hkof-box{border:1px solid #e5e7eb;border-radius:10px;padding:20px 22px;margin-bottom:18px;background:#fff}
+            .hkof-fe-admin .hkof-notice{padding:12px 16px;border-radius:8px;margin-bottom:16px;background:#dcfce7;border:1px solid #86efac;color:#14532d;font-size:1em}
+            .hkof-fe-admin textarea,.hkof-fe-admin input[type=text],.hkof-fe-admin input[type=email],.hkof-fe-admin input[type=password],.hkof-fe-admin input[type=date],.hkof-fe-admin input[type=number],.hkof-fe-admin select{width:100%;padding:12px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;font-family:inherit;background:#fff;min-height:48px;line-height:1.4}
+            .hkof-fe-admin textarea{min-height:96px}
+            .hkof-fe-admin .hkof-login-row{margin-bottom:14px}
+            .hkof-fe-admin .hkof-hint{font-size:.95em;color:#6b7280;margin-top:-2px}
             .hkof-fe-admin .hkof-edit-table th{width:220px}
             .hkof-fe-admin .hkof-edit-table td{max-width:360px}
-            .hkof-fe-admin .hkof-inline-btn{display:inline-block;padding:6px 12px;border-radius:6px;background:#f3f4f6;color:#374151;text-decoration:none;font-size:.85em;font-weight:600;border:1px solid #d1d5db;cursor:pointer;margin-left:8px}
-            .hkof-fe-admin .hkof-error-box{padding:10px 14px;border-radius:8px;margin-bottom:16px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+            .hkof-fe-admin .hkof-inline-btn{display:inline-block;padding:8px 14px;border-radius:8px;background:#f3f4f6;color:#374151;text-decoration:none;font-size:.95em;font-weight:600;border:1px solid #d1d5db;cursor:pointer;margin-left:8px}
+            .hkof-fe-admin .hkof-error-box{padding:12px 16px;border-radius:8px;margin-bottom:16px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:1em}
+            .hkof-fe-admin label{font-size:15px;font-weight:600;color:#374151}
         </style>
         <?php
 
